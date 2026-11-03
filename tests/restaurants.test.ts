@@ -222,4 +222,213 @@ describe("authenticated restaurant journal API", () => {
       rating: null,
     });
   });
+
+  it("updates and deletes only owned restaurants and cascades their stars", async () => {
+    const emailA = `restaurant-edit-owner-${randomUUID()}@example.test`;
+    const emailB = `restaurant-edit-other-${randomUUID()}@example.test`;
+    const owner = request.agent(app);
+    const otherUser = request.agent(app);
+    const { userId: ownerId } = await signUp(owner, emailA);
+    const { userId: otherUserId } = await signUp(otherUser, emailB);
+    const cuisineResponse = await owner.get("/api/cuisines").expect(200);
+    const thai = cuisineResponse.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Thai",
+    ) as { id: number; name: string } | undefined;
+    const mexican = cuisineResponse.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Mexican",
+    ) as { id: number; name: string } | undefined;
+    expect(thai).toBeDefined();
+    expect(mexican).toBeDefined();
+
+    const ownerCsrf = await getCsrf(owner);
+    const created = await owner
+      .post("/api/restaurants")
+      .set("x-csrf-token", ownerCsrf)
+      .send({
+        name: "Edit test place",
+        cuisineId: thai!.id,
+        city: "Original City",
+        notes: "Original note",
+        rating: 3.7,
+      })
+      .expect(201);
+    const restaurantId = created.body.restaurant.id as number;
+    const otherCsrf = await getCsrf(otherUser);
+    const anonymous = request.agent(app);
+    const anonymousCsrf = await getCsrf(anonymous);
+
+    await anonymous
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", anonymousCsrf)
+      .send({ name: "Anonymous change" })
+      .expect(401);
+    await anonymous
+      .delete(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", anonymousCsrf)
+      .expect(401);
+
+    await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .send({ name: "Missing CSRF" })
+      .expect(403);
+    await owner.delete(`/api/restaurants/${restaurantId}`).expect(403);
+
+    const foreignPatch = await otherUser
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", otherCsrf)
+      .send({ name: "   " })
+      .expect(404);
+    const foreignDelete = await otherUser
+      .delete(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", otherCsrf)
+      .expect(404);
+    expect(foreignPatch.body).toEqual({ message: "Restaurant not found." });
+    expect(foreignDelete.body).toEqual(foreignPatch.body);
+
+    await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .send({ name: "   " })
+      .expect(400);
+    await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .send({ rating: 4.56 })
+      .expect(400);
+    await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .send({ name: "Must not change owner", user_id: otherUserId })
+      .expect(400);
+    await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .send({})
+      .expect(400);
+
+    const unchanged = await owner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(unchanged.body.restaurant).toMatchObject({
+      name: "Edit test place",
+      cuisineName: "Thai",
+      city: "Original City",
+      notes: "Original note",
+      rating: 3.7,
+    });
+
+    const oldTimestamp = "2000-01-01T00:00:00.000Z";
+    await pool.query(
+      "UPDATE restaurants SET updated_at = $1 WHERE id = $2 AND user_id = $3",
+      [oldTimestamp, restaurantId, ownerId],
+    );
+    await pool.query(
+      "INSERT INTO stars (user_id, restaurant_id) VALUES ($1, $2)",
+      [ownerId, restaurantId],
+    );
+
+    const updatedResponse = await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .send({
+        name: "Updated test place",
+        cuisineId: mexican!.id,
+        city: "  ",
+        notes: "",
+        rating: 4.6,
+      })
+      .expect(200);
+    const updated = updatedResponse.body.restaurant as {
+      name: string;
+      cuisineName: string;
+      city: string | null;
+      notes: string | null;
+      rating: number;
+      updatedAt: string;
+    };
+    expect(updated).toMatchObject({
+      name: "Updated test place",
+      cuisineName: "Mexican",
+      city: null,
+      notes: null,
+      rating: 4.6,
+    });
+    expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(oldTimestamp));
+    expect(updatedResponse.body.restaurant).not.toHaveProperty("userId");
+
+    const persistedRow = await pool.query<{
+      user_id: number;
+      city: string | null;
+      notes: string | null;
+      rating: string | null;
+    }>(
+      "SELECT user_id, city, notes, rating::text AS rating FROM restaurants WHERE id = $1",
+      [restaurantId],
+    );
+    expect(persistedRow.rows[0]).toEqual({
+      user_id: ownerId,
+      city: null,
+      notes: null,
+      rating: "4.6",
+    });
+
+    const reauthenticatedOwner = request.agent(app);
+    const loginCsrf = await getCsrf(reauthenticatedOwner);
+    await reauthenticatedOwner
+      .post("/api/auth/login")
+      .set("x-csrf-token", loginCsrf)
+      .send({ email: emailA, password: testPassword })
+      .expect(200);
+    const persistedDetail = await reauthenticatedOwner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(persistedDetail.body.restaurant).toMatchObject({
+      name: "Updated test place",
+      cuisineName: "Mexican",
+      rating: 4.6,
+      city: null,
+      notes: null,
+    });
+    const listAfterUpdate = await owner.get("/api/restaurants").expect(200);
+    expect(
+      listAfterUpdate.body.restaurants.find(
+        (item: { id: number }) => item.id === restaurantId,
+      ),
+    ).toMatchObject({
+      name: "Updated test place",
+      cuisineName: "Mexican",
+      rating: 4.6,
+    });
+
+    const starsBeforeDelete = await pool.query(
+      "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
+      [ownerId, restaurantId],
+    );
+    expect(starsBeforeDelete.rows[0].count).toBe(1);
+
+    await owner
+      .delete(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .expect(200, { ok: true });
+    const restaurantAfterDelete = await pool.query(
+      "SELECT count(*)::int AS count FROM restaurants WHERE id = $1 AND user_id = $2",
+      [restaurantId, ownerId],
+    );
+    const starsAfterDelete = await pool.query(
+      "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
+      [ownerId, restaurantId],
+    );
+    expect(restaurantAfterDelete.rows[0].count).toBe(0);
+    expect(starsAfterDelete.rows[0].count).toBe(0);
+    const listAfterDelete = await owner.get("/api/restaurants").expect(200);
+    expect(
+      listAfterDelete.body.restaurants.some(
+        (item: { id: number }) => item.id === restaurantId,
+      ),
+    ).toBe(false);
+    await owner
+      .delete(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", ownerCsrf)
+      .expect(404, { message: "Restaurant not found." });
+  });
 });

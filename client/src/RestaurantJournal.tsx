@@ -3,17 +3,29 @@ import type { FormEvent, MouseEvent, ReactNode } from "react";
 import {
   ApiError,
   createRestaurant,
+  deleteRestaurant,
   fetchCuisines,
   fetchRestaurant,
   fetchRestaurants,
+  updateRestaurant,
 } from "./api";
 import type { Cuisine, Restaurant } from "./api";
 
-type JournalRoute = { page: "collection" } | { page: "new" } | { page: "detail"; id: number } | { page: "not-found" };
+type JournalRoute =
+  | { page: "collection" }
+  | { page: "new" }
+  | { page: "edit"; id: number }
+  | { page: "detail"; id: number }
+  | { page: "not-found" };
 
 function routeFor(path: string): JournalRoute {
   if (path === "/" || path === "") return { page: "collection" };
   if (path === "/restaurants/new") return { page: "new" };
+  const editMatch = path.match(/^\/restaurants\/([1-9]\d*)\/edit$/);
+  if (editMatch) {
+    const id = Number(editMatch[1]);
+    if (Number.isSafeInteger(id)) return { page: "edit", id };
+  }
   const match = path.match(/^\/restaurants\/([1-9]\d*)$/);
   if (match) {
     const id = Number(match[1]);
@@ -96,13 +108,19 @@ function RestaurantCard({ restaurant, onNavigate }: { restaurant: Restaurant; on
 function RestaurantForm({
   csrfToken,
   onNavigate,
+  restaurantId,
 }: {
   csrfToken: string;
   onNavigate: (path: string) => void;
+  restaurantId?: number;
 }) {
+  const isEditing = restaurantId !== undefined;
   const [cuisines, setCuisines] = useState<Cuisine[]>([]);
   const [cuisinesLoading, setCuisinesLoading] = useState(true);
   const [cuisineError, setCuisineError] = useState("");
+  const [restaurantLoading, setRestaurantLoading] = useState(isEditing);
+  const [restaurantLoadError, setRestaurantLoadError] = useState("");
+  const [restaurantRetry, setRestaurantRetry] = useState(0);
   const [name, setName] = useState("");
   const [cuisineId, setCuisineId] = useState("");
   const [city, setCity] = useState("");
@@ -128,6 +146,38 @@ function RestaurantForm({
     void loadCuisines();
   }, []);
 
+  useEffect(() => {
+    if (restaurantId === undefined) return;
+    let active = true;
+    setRestaurantLoading(true);
+    setRestaurantLoadError("");
+
+    fetchRestaurant(restaurantId)
+      .then((restaurant) => {
+        if (!active) return;
+        setName(restaurant.name);
+        setCuisineId(String(restaurant.cuisineId));
+        setCity(restaurant.city ?? "");
+        setNotes(restaurant.notes ?? "");
+        setRating(restaurant.rating === null ? "" : String(restaurant.rating));
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setRestaurantLoadError(
+          error instanceof ApiError && error.status === 404
+            ? "We couldn’t find that place in your journal."
+            : "The saved details couldn’t be loaded. Please try again.",
+        );
+      })
+      .finally(() => {
+        if (active) setRestaurantLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [restaurantId, restaurantRetry]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
@@ -146,17 +196,17 @@ function RestaurantForm({
     }
     setSaving(true);
     try {
-      const created = await createRestaurant(
-        {
-          name: name.trim(),
-          cuisineId: Number(cuisineId),
-          city: city.trim() || null,
-          notes: notes.trim() || null,
-          rating: rating ? Number(rating) : null,
-        },
-        csrfToken,
-      );
-      onNavigate(`/restaurants/${created.id}`);
+      const input = {
+        name: name.trim(),
+        cuisineId: Number(cuisineId),
+        city: city.trim() || null,
+        notes: notes.trim() || null,
+        rating: rating ? Number(rating) : null,
+      };
+      const saved = isEditing
+        ? await updateRestaurant(restaurantId, input, csrfToken)
+        : await createRestaurant(input, csrfToken);
+      onNavigate(`/restaurants/${saved.id}`);
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.errors);
@@ -169,12 +219,45 @@ function RestaurantForm({
     }
   }
 
+  if (restaurantLoading) {
+    return (
+      <section className="journal-content form-content" aria-busy="true" aria-live="polite">
+        <JournalLink className="back-link" href="/" onNavigate={onNavigate}>← Your collection</JournalLink>
+        <p>Loading your saved details…</p>
+      </section>
+    );
+  }
+
+  if (restaurantLoadError) {
+    return (
+      <section className="journal-content form-content" aria-labelledby="edit-load-heading">
+        <JournalLink className="back-link" href="/" onNavigate={onNavigate}>← Your collection</JournalLink>
+        <div className="journal-state error-state" role="alert">
+          <span className="state-stamp" aria-hidden="true">!</span>
+          <h1 id="edit-load-heading">This place isn’t available.</h1>
+          <p>{restaurantLoadError}</p>
+          <button
+            className="journal-secondary-button"
+            type="button"
+            onClick={() => setRestaurantRetry((retry) => retry + 1)}
+          >
+            Try again
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="journal-content form-content" aria-labelledby="add-heading">
       <JournalLink className="back-link" href="/" onNavigate={onNavigate}>← Your collection</JournalLink>
-      <p className="journal-eyebrow">A new page in your journal</p>
-      <h1 id="add-heading">Save a place.</h1>
-      <p className="journal-lede">Keep the details that make this one worth finding again.</p>
+      <p className="journal-eyebrow">{isEditing ? "Update your journal" : "A new page in your journal"}</p>
+      <h1 id="add-heading">{isEditing ? "Edit this place." : "Save a place."}</h1>
+      <p className="journal-lede">
+        {isEditing
+          ? "Keep the details current, just as you remember them."
+          : "Keep the details that make this one worth finding again."}
+      </p>
 
       <form className="restaurant-form" onSubmit={handleSubmit} noValidate>
         <div className="journal-field">
@@ -287,10 +370,18 @@ function RestaurantForm({
         {formError && <p className="form-error" role="alert">{formError}</p>}
         <div className="form-actions">
           <button className="journal-submit" type="submit" disabled={saving || cuisinesLoading || Boolean(cuisineError) || cuisines.length === 0}>
-            {saving ? "Saving your place…" : "Add to my collection"}
+            {saving
+              ? isEditing ? "Saving your changes…" : "Saving your place…"
+              : isEditing ? "Save changes" : "Add to my collection"}
             <span aria-hidden="true">↗</span>
           </button>
-          <JournalLink className="cancel-link" href="/" onNavigate={onNavigate}>Cancel</JournalLink>
+          <JournalLink
+            className="cancel-link"
+            href={isEditing && restaurantId !== undefined ? `/restaurants/${restaurantId}` : "/"}
+            onNavigate={onNavigate}
+          >
+            Cancel
+          </JournalLink>
         </div>
       </form>
     </section>
@@ -365,16 +456,29 @@ function CollectionPage({ onNavigate }: { onNavigate: (path: string) => void }) 
   );
 }
 
-function DetailPage({ id, onNavigate }: { id: number; onNavigate: (path: string) => void }) {
+function DetailPage({
+  id,
+  csrfToken,
+  onNavigate,
+}: {
+  id: number;
+  csrfToken: string;
+  onNavigate: (path: string) => void;
+}) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
     setRestaurant(null);
+    setConfirmingDelete(false);
+    setDeleteError("");
     fetchRestaurant(id).then((result) => {
       if (active) setRestaurant(result);
     }).catch((reason: unknown) => {
@@ -387,6 +491,24 @@ function DetailPage({ id, onNavigate }: { id: number; onNavigate: (path: string)
     });
     return () => { active = false; };
   }, [id]);
+
+  async function handleDelete() {
+    if (!restaurant || !csrfToken || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteRestaurant(restaurant.id, csrfToken);
+      onNavigate("/");
+    } catch (reason) {
+      setDeleteError(
+        reason instanceof ApiError
+          ? reason.message
+          : "This place couldn’t be deleted. Check your connection and try again.",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (loading) {
     return <section className="journal-content detail-content" aria-busy="true" aria-label="Loading restaurant"><div className="detail-skeleton" /></section>;
@@ -437,6 +559,60 @@ function DetailPage({ id, onNavigate }: { id: number; onNavigate: (path: string)
             : <p className="notes-empty">No note for this one. Maybe the feeling is enough.</p>}
         </div>
       </div>
+      <div className="detail-actions">
+        <JournalLink
+          className="detail-edit-button"
+          href={`/restaurants/${restaurant.id}/edit`}
+          onNavigate={onNavigate}
+        >
+          Edit details
+        </JournalLink>
+        <button
+          className="detail-delete-button"
+          type="button"
+          onClick={() => {
+            setDeleteError("");
+            setConfirmingDelete(true);
+          }}
+        >
+          Delete restaurant
+        </button>
+      </div>
+      {confirmingDelete && (
+        <div
+          className="delete-confirmation"
+          role="alertdialog"
+          aria-labelledby="delete-confirmation-heading"
+          aria-describedby="delete-confirmation-description"
+        >
+          <h2 id="delete-confirmation-heading">
+            Are you sure you want to delete {restaurant.name}?
+          </h2>
+          <p id="delete-confirmation-description">
+            This removes the restaurant from your collection and cannot be undone.
+          </p>
+          {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
+          <div className="delete-confirmation-actions">
+            <button
+              className="journal-secondary-button"
+              type="button"
+              autoFocus
+              disabled={deleting}
+              onClick={() => setConfirmingDelete(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="confirm-delete-button"
+              type="button"
+              disabled={deleting}
+              onClick={() => void handleDelete()}
+            >
+              {deleting ? "Deleting…" : "Delete restaurant"}
+            </button>
+          </div>
+        </div>
+      )}
       <p className="detail-signoff">Kept for a day when you want to go back.</p>
     </article>
   );
@@ -473,7 +649,7 @@ export default function RestaurantJournal({
       <header className="journal-header">
         <Brand />
         <nav className="journal-nav" aria-label="Main navigation">
-          <JournalLink className={route.page === "collection" || route.page === "detail" ? "nav-current" : ""} href="/" onNavigate={navigate}>My collection</JournalLink>
+          <JournalLink className={route.page === "collection" || route.page === "detail" || route.page === "edit" ? "nav-current" : ""} href="/" onNavigate={navigate}>My collection</JournalLink>
           <JournalLink className="nav-add" href="/restaurants/new" onNavigate={navigate}>Add a place <span aria-hidden="true">+</span></JournalLink>
           <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
             {loggingOut ? "Signing out…" : "Log out"}
@@ -483,7 +659,8 @@ export default function RestaurantJournal({
       {logoutError && <p className="journal-logout-error" role="alert">{logoutError}</p>}
       {route.page === "collection" && <CollectionPage onNavigate={navigate} />}
       {route.page === "new" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} />}
-      {route.page === "detail" && <DetailPage id={route.id} onNavigate={navigate} />}
+      {route.page === "edit" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} restaurantId={route.id} />}
+      {route.page === "detail" && <DetailPage id={route.id} csrfToken={csrfToken} onNavigate={navigate} />}
       {route.page === "not-found" && (
         <section className="journal-content journal-state error-state" aria-labelledby="route-error-heading">
           <span className="state-stamp" aria-hidden="true">!</span>

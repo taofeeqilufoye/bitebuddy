@@ -190,6 +190,13 @@ const restaurantInputSchema = z.object({
     .optional(),
 });
 
+const restaurantUpdateSchema = restaurantInputSchema
+  .partial()
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "Update at least one restaurant detail.",
+  });
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
@@ -500,6 +507,154 @@ app.get(
 
     res.setHeader("Cache-Control", "no-store");
     res.json({ restaurant });
+  },
+);
+
+app.patch(
+  "/api/restaurants/:id",
+  requireJson,
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const idText = req.params.id;
+    if (typeof idText !== "string" || !/^[1-9]\d*$/.test(idText)) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const id = Number(idText);
+    if (!Number.isSafeInteger(id) || id > 2_147_483_647) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const [ownedRestaurant] = await db
+      .select({ id: restaurants.id })
+      .from(restaurants)
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .limit(1);
+
+    if (!ownedRestaurant) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const parsed = restaurantUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendRestaurantValidationError(res, parsed.error.issues);
+      return;
+    }
+
+    if (parsed.data.cuisineId !== undefined) {
+      const [cuisine] = await db
+        .select({ id: cuisines.id })
+        .from(cuisines)
+        .where(eq(cuisines.id, parsed.data.cuisineId))
+        .limit(1);
+
+      if (!cuisine) {
+        res.status(400).json({
+          message: "Choose a cuisine from the list.",
+          errors: { cuisineId: "Choose a cuisine from the list." },
+        });
+        return;
+      }
+    }
+
+    const updates: Partial<typeof restaurants.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.cuisineId !== undefined) {
+      updates.cuisineId = parsed.data.cuisineId;
+    }
+    if (parsed.data.city !== undefined) {
+      updates.city = parsed.data.city?.trim() || null;
+    }
+    if (parsed.data.notes !== undefined) {
+      updates.notes = parsed.data.notes?.trim() || null;
+    }
+    if (parsed.data.rating !== undefined) {
+      updates.rating = parsed.data.rating ?? null;
+    }
+
+    const [updated] = await db
+      .update(restaurants)
+      .set(updates)
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .returning({ id: restaurants.id });
+
+    if (!updated) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const [restaurant] = await db
+      .select(restaurantProjection)
+      .from(restaurants)
+      .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .limit(1);
+
+    if (!restaurant) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ restaurant });
+  },
+);
+
+app.delete(
+  "/api/restaurants/:id",
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const idText = req.params.id;
+    if (typeof idText !== "string" || !/^[1-9]\d*$/.test(idText)) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const id = Number(idText);
+    if (!Number.isSafeInteger(id) || id > 2_147_483_647) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const [deleted] = await db
+      .delete(restaurants)
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .returning({ id: restaurants.id });
+
+    if (!deleted) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true });
   },
 );
 

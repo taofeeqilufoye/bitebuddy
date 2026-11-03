@@ -1467,6 +1467,103 @@ input:focus-visible {
   text-align: right;
 }
 
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 27px;
+}
+
+.detail-edit-button,
+.detail-delete-button,
+.confirm-delete-button {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border: 1px solid #d7aa99;
+  border-radius: 6px;
+  background: #fffaf4;
+  color: var(--terracotta-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail-edit-button:hover,
+.detail-delete-button:hover {
+  background: #fff0e8;
+}
+
+.detail-delete-button,
+.confirm-delete-button {
+  border-color: #c77c6d;
+  color: #912e22;
+}
+
+.delete-confirmation {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid #dfb7ad;
+  border-radius: 8px;
+  background: #fff0eb;
+}
+
+.delete-confirmation h2 {
+  margin: 0;
+  color: #542820;
+  font-family: var(--serif);
+  font-size: clamp(21px, 3vw, 28px);
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.delete-confirmation > p {
+  margin: 0;
+  color: #765349;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.delete-confirmation .form-error {
+  margin-top: 2px;
+}
+
+.delete-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.confirm-delete-button {
+  border-color: #a63829;
+  background: #a63829;
+  color: #fff8f0;
+}
+
+.confirm-delete-button:hover:not(:disabled) {
+  background: #84291e;
+}
+
+.delete-confirmation button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.detail-edit-button:focus-visible,
+.detail-delete-button:focus-visible,
+.confirm-delete-button:focus-visible {
+  outline: 3px solid rgba(194, 65, 45, 0.35);
+  outline-offset: 3px;
+}
+
 .detail-skeleton {
   min-height: 420px;
   border: 1px solid #e4d6c9;
@@ -1703,6 +1800,15 @@ input:focus-visible {
 
   .detail-content > .back-link {
     margin-bottom: 47px;
+  }
+
+  .detail-actions > a,
+  .detail-actions > button {
+    flex: 1 1 150px;
+  }
+
+  .delete-confirmation-actions > button {
+    flex: 1 1 130px;
   }
 
   .detail-topline {
