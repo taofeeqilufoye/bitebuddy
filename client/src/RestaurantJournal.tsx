@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
 import DashboardPage from "./DashboardPage";
+import ThemeToggle from "./ThemeToggle";
+import type { Theme } from "./themePreference";
 import {
   ApiError,
   createRestaurant,
@@ -1185,11 +1187,15 @@ export default function RestaurantJournal({
   onLogout,
   loggingOut,
   logoutError,
+  theme,
+  onToggleTheme,
 }: {
   csrfToken: string;
   onLogout: () => void;
   loggingOut: boolean;
   logoutError: string;
+  theme: Theme;
+  onToggleTheme: () => void;
 }) {
   const [path, setPath] = useState(() => window.location.pathname);
   const route = routeFor(path);
@@ -1215,6 +1221,7 @@ export default function RestaurantJournal({
           <JournalLink className={`journal-nav-starred${route.page === "starred" ? " nav-current" : ""}`} href="/restaurants/starred" onNavigate={navigate}>Starred</JournalLink>
           <JournalLink className={`journal-nav-dashboard${route.page === "dashboard" ? " nav-current" : ""}`} href="/dashboard" onNavigate={navigate}>Dashboard</JournalLink>
           <JournalLink className="nav-add" href="/restaurants/new" onNavigate={navigate}>Add a place <span aria-hidden="true">+</span></JournalLink>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
             {loggingOut ? "Signing out…" : "Log out"}
           </button>

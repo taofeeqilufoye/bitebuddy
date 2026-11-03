@@ -101,13 +101,16 @@ export default function DashboardPage() {
                       layout="vertical"
                       margin={{ top: 8, right: 24, bottom: 8, left: 4 }}
                     >
-                      <CartesianGrid horizontal={false} stroke="#eaded2" />
+                      <CartesianGrid
+                        horizontal={false}
+                        stroke="var(--theme-chart-grid)"
+                      />
                       <XAxis
                         type="number"
                         allowDecimals={false}
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "#776b62", fontSize: 12 }}
+                        tick={{ fill: "var(--theme-chart-axis)", fontSize: 12 }}
                       />
                       <YAxis
                         type="category"
@@ -115,13 +118,27 @@ export default function DashboardPage() {
                         width={118}
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: "#493f38", fontSize: 12 }}
+                        tick={{ fill: "var(--theme-chart-label)", fontSize: 12 }}
                       />
                       <Tooltip
-                        cursor={{ fill: "#f5e9dc" }}
+                        cursor={{ fill: "var(--theme-chart-cursor)" }}
+                        contentStyle={{
+                          backgroundColor: "var(--theme-tooltip-bg)",
+                          borderColor: "var(--theme-tooltip-border)",
+                          borderRadius: 6,
+                          color: "var(--theme-text)",
+                        }}
+                        labelStyle={{ color: "var(--theme-text)" }}
+                        itemStyle={{ color: "var(--theme-text)" }}
                         formatter={(value) => [`${value} ${value === 1 ? "restaurant" : "restaurants"}`, "Saved"]}
                       />
-                      <Bar dataKey="count" name="Restaurants" fill="#C2412D" radius={[0, 5, 5, 0]} maxBarSize={24} />
+                      <Bar
+                        dataKey="count"
+                        name="Restaurants"
+                        fill="var(--theme-chart-bar)"
+                        radius={[0, 5, 5, 0]}
+                        maxBarSize={24}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
