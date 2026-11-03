@@ -925,14 +925,13 @@ input:focus-visible {
 
 .restaurant-card {
   display: grid;
-  grid-template-columns: 55px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 17px;
   min-height: 145px;
   padding: 25px 5px 24px 0;
   border-bottom: 1px solid #e4d7ca;
   color: inherit;
-  text-decoration: none;
   transition: background-color 160ms ease, padding 160ms ease;
 }
 
@@ -940,6 +939,16 @@ input:focus-visible {
   padding-right: 13px;
   padding-left: 11px;
   background: rgba(240, 223, 207, 0.35);
+}
+
+.restaurant-card-link {
+  display: grid;
+  grid-template-columns: 55px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 17px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
 
 .card-index {
@@ -1038,6 +1047,70 @@ input:focus-visible {
 
 .restaurant-card:hover .card-arrow {
   transform: translate(2px, -2px);
+}
+
+.card-star-action {
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+  min-width: 82px;
+}
+
+.star-toggle,
+.detail-star-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #d7aa99;
+  border-radius: 6px;
+  background: #fffaf4;
+  color: var(--terracotta-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.star-toggle[aria-pressed="true"],
+.detail-star-button[aria-pressed="true"] {
+  border-color: #a63829;
+  background: #a63829;
+  color: #fff8f0;
+}
+
+.star-toggle:hover:not(:disabled),
+.detail-star-button:hover:not(:disabled) {
+  background: #fff0e8;
+}
+
+.star-toggle[aria-pressed="true"]:hover:not(:disabled),
+.detail-star-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: #84291e;
+}
+
+.star-toggle:disabled,
+.detail-star-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.star-action-error {
+  max-width: 190px;
+  margin: 0;
+  color: #8f3025;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.restaurant-card-link:focus-visible,
+.star-toggle:focus-visible,
+.detail-star-button:focus-visible {
+  outline: 3px solid rgba(194, 65, 45, 0.35);
+  outline-offset: 3px;
 }
 
 .journal-state {
@@ -1475,6 +1548,7 @@ input:focus-visible {
 }
 
 .detail-edit-button,
+.detail-star-button,
 .detail-delete-button,
 .confirm-delete-button {
   display: inline-flex;
@@ -1494,6 +1568,7 @@ input:focus-visible {
 }
 
 .detail-edit-button:hover,
+.detail-star-button:hover,
 .detail-delete-button:hover {
   background: #fff0e8;
 }
@@ -1558,6 +1633,7 @@ input:focus-visible {
 }
 
 .detail-edit-button:focus-visible,
+.detail-star-button:focus-visible,
 .detail-delete-button:focus-visible,
 .confirm-delete-button:focus-visible {
   outline: 3px solid rgba(194, 65, 45, 0.35);
@@ -1638,7 +1714,7 @@ input:focus-visible {
     gap: 15px;
   }
 
-  .journal-nav > a:not(.nav-add) {
+  .journal-nav > a:not(.nav-add):not(.journal-nav-starred) {
     display: none;
   }
 
@@ -1652,8 +1728,14 @@ input:focus-visible {
   }
 
   .restaurant-card {
-    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     min-height: 135px;
+    gap: 8px;
+  }
+
+  .restaurant-card-link {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 8px;
   }
 
   .card-aside {
@@ -1662,22 +1744,22 @@ input:focus-visible {
     padding-top: 0;
   }
 
-  .card-body {
+  .card-star-action {
     grid-column: 2;
+    grid-row: 1;
+    align-self: start;
   }
 
-  .restaurant-card {
-    position: relative;
+  .card-body {
+    grid-column: 2;
   }
 
   .card-index {
     grid-row: 1 / span 2;
   }
 
-  .card-aside {
-    position: absolute;
-    right: 5px;
-    bottom: 21px;
+  .card-star-action .star-action-error {
+    max-width: 150px;
   }
 
   .journal-footer {
@@ -1706,6 +1788,10 @@ input:focus-visible {
 
   .journal-nav {
     gap: 8px;
+  }
+
+  .journal-nav .journal-nav-starred {
+    font-size: 11px;
   }
 
   .journal-nav .nav-add {
@@ -1741,7 +1827,7 @@ input:focus-visible {
   }
 
   .restaurant-card {
-    gap: 8px;
+    gap: 6px;
     min-height: 146px;
     padding-top: 22px;
     padding-bottom: 22px;
@@ -1761,9 +1847,18 @@ input:focus-visible {
     font-size: 26px;
   }
 
-  .card-aside {
-    right: 2px;
-    bottom: 18px;
+  .card-star-action {
+    min-width: 0;
+  }
+
+  .card-star-action .star-toggle {
+    min-height: 32px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .card-star-action .star-action-error {
+    max-width: 120px;
   }
 
   .card-note {

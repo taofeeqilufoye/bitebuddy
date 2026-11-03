@@ -6,11 +6,11 @@ import type { ErrorRequestHandler, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import helmet from "helmet";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import path from "node:path";
 import { z } from "zod";
 import { db, pool } from "./db/client.js";
-import { cuisines, restaurants, users } from "./db/schema.js";
+import { cuisines, restaurants, stars, users } from "./db/schema.js";
 import {
   loginSchema,
   restaurantInputSchema,
@@ -304,6 +304,19 @@ const restaurantProjection = {
   updatedAt: restaurants.updatedAt,
 };
 
+const restaurantWithStarProjection = {
+  ...restaurantProjection,
+  isStarred: sql<boolean>`(${stars.restaurantId} IS NOT NULL)`,
+};
+
+function parseRestaurantId(idText: unknown): number | null {
+  if (typeof idText !== "string" || !/^[1-9]\d*$/.test(idText)) {
+    return null;
+  }
+  const id = Number(idText);
+  return Number.isSafeInteger(id) && id <= 2_147_483_647 ? id : null;
+}
+
 function sendRestaurantNotFound(res: Response): void {
   res.status(404).json({ message: "Restaurant not found." });
 }
@@ -333,11 +346,39 @@ app.get("/api/cuisines", requireAuthenticated, async (_req, res) => {
 });
 
 app.get("/api/restaurants", requireAuthenticated, async (req, res) => {
+  const userId = req.session.userId!;
   const rows = await db
-    .select(restaurantProjection)
+    .select(restaurantWithStarProjection)
     .from(restaurants)
     .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
-    .where(eq(restaurants.userId, req.session.userId!))
+    .leftJoin(
+      stars,
+      and(
+        eq(stars.restaurantId, restaurants.id),
+        eq(stars.userId, userId),
+      ),
+    )
+    .where(eq(restaurants.userId, userId))
+    .orderBy(desc(restaurants.createdAt), desc(restaurants.id));
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ restaurants: rows });
+});
+
+app.get("/api/restaurants/starred", requireAuthenticated, async (req, res) => {
+  const userId = req.session.userId!;
+  const rows = await db
+    .select(restaurantWithStarProjection)
+    .from(restaurants)
+    .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+    .innerJoin(
+      stars,
+      and(
+        eq(stars.restaurantId, restaurants.id),
+        eq(stars.userId, userId),
+      ),
+    )
+    .where(eq(restaurants.userId, userId))
     .orderBy(desc(restaurants.createdAt), desc(restaurants.id));
 
   res.setHeader("Cache-Control", "no-store");
@@ -383,9 +424,16 @@ app.post(
       .returning({ id: restaurants.id });
 
     const [restaurant] = await db
-      .select(restaurantProjection)
+      .select(restaurantWithStarProjection)
       .from(restaurants)
       .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .leftJoin(
+        stars,
+        and(
+          eq(stars.restaurantId, restaurants.id),
+          eq(stars.userId, req.session.userId!),
+        ),
+      )
       .where(
         and(
           eq(restaurants.id, created.id),
@@ -420,9 +468,16 @@ app.get(
     }
 
     const [restaurant] = await db
-      .select(restaurantProjection)
+      .select(restaurantWithStarProjection)
       .from(restaurants)
       .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .leftJoin(
+        stars,
+        and(
+          eq(stars.restaurantId, restaurants.id),
+          eq(stars.userId, req.session.userId!),
+        ),
+      )
       .where(
         and(
           eq(restaurants.id, id),
@@ -438,6 +493,85 @@ app.get(
 
     res.setHeader("Cache-Control", "no-store");
     res.json({ restaurant });
+  },
+);
+
+app.put(
+  "/api/restaurants/:id/star",
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const id = parseRestaurantId(req.params.id);
+    if (id === null) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const userId = req.session.userId!;
+    const isOwned = await db.transaction(async (transaction) => {
+      const [restaurant] = await transaction
+        .select({ id: restaurants.id })
+        .from(restaurants)
+        .where(
+          and(eq(restaurants.id, id), eq(restaurants.userId, userId)),
+        )
+        .for("update")
+        .limit(1);
+      if (!restaurant) return false;
+
+      await transaction
+        .insert(stars)
+        .values({ userId, restaurantId: id })
+        .onConflictDoNothing();
+      return true;
+    });
+
+    if (!isOwned) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ isStarred: true });
+  },
+);
+
+app.delete(
+  "/api/restaurants/:id/star",
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const id = parseRestaurantId(req.params.id);
+    if (id === null) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const userId = req.session.userId!;
+    const isOwned = await db.transaction(async (transaction) => {
+      const [restaurant] = await transaction
+        .select({ id: restaurants.id })
+        .from(restaurants)
+        .where(
+          and(eq(restaurants.id, id), eq(restaurants.userId, userId)),
+        )
+        .for("update")
+        .limit(1);
+      if (!restaurant) return false;
+
+      await transaction
+        .delete(stars)
+        .where(and(eq(stars.userId, userId), eq(stars.restaurantId, id)));
+      return true;
+    });
+
+    if (!isOwned) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ isStarred: false });
   },
 );
 
@@ -531,9 +665,16 @@ app.patch(
     }
 
     const [restaurant] = await db
-      .select(restaurantProjection)
+      .select(restaurantWithStarProjection)
       .from(restaurants)
       .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .leftJoin(
+        stars,
+        and(
+          eq(stars.restaurantId, restaurants.id),
+          eq(stars.userId, req.session.userId!),
+        ),
+      )
       .where(
         and(
           eq(restaurants.id, id),
