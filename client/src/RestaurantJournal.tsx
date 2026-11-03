@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
 import {
   ApiError,
@@ -12,6 +12,10 @@ import {
   updateRestaurant,
 } from "./api";
 import type { CreateRestaurantInput, Cuisine, Restaurant } from "./api";
+import {
+  filterAndSortRestaurants,
+  type RestaurantSort,
+} from "./restaurantList";
 import {
   RESTAURANT_LIMITS,
   restaurantInputSchema,
@@ -527,6 +531,43 @@ function CollectionPage({
   const [error, setError] = useState("");
   const [starBusyId, setStarBusyId] = useState<number | null>(null);
   const [starError, setStarError] = useState<{ id: number; message: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [cuisineFilter, setCuisineFilter] = useState<number | null>(null);
+  const [sortMode, setSortMode] = useState<RestaurantSort>("newest");
+
+  const cuisineOptions = useMemo(() => {
+    const cuisines = new Map<number, string>();
+    for (const restaurant of restaurants) {
+      cuisines.set(restaurant.cuisineId, restaurant.cuisineName);
+    }
+    return [...cuisines.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort(
+        (left, right) =>
+          left.name.localeCompare(right.name, undefined, { sensitivity: "base" }) ||
+          left.id - right.id,
+      );
+  }, [restaurants]);
+
+  const visibleRestaurants = useMemo(
+    () =>
+      filterAndSortRestaurants(restaurants, {
+        query: searchTerm,
+        cuisineId: cuisineFilter,
+        sort: sortMode,
+      }),
+    [restaurants, searchTerm, cuisineFilter, sortMode],
+  );
+  const filtersActive =
+    searchTerm.trim().length > 0 ||
+    cuisineFilter !== null ||
+    sortMode !== "newest";
+
+  function clearFilters() {
+    setSearchTerm("");
+    setCuisineFilter(null);
+    setSortMode("newest");
+  }
 
   async function loadRestaurants() {
     setLoading(true);
@@ -600,6 +641,62 @@ function CollectionPage({
         </JournalLink>
       </div>
 
+      {!loading && !error && restaurants.length > 0 && (
+        <section className="collection-controls" aria-label="Find places">
+          <label className="collection-control" htmlFor="collection-search">
+            <span>Search name or city</span>
+            <input
+              id="collection-search"
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search your places"
+              autoComplete="off"
+            />
+          </label>
+          <label className="collection-control" htmlFor="collection-cuisine">
+            <span>Cuisine</span>
+            <select
+              id="collection-cuisine"
+              value={cuisineFilter === null ? "all" : String(cuisineFilter)}
+              onChange={(event) =>
+                setCuisineFilter(
+                  event.target.value === "all" ? null : Number(event.target.value),
+                )
+              }
+            >
+              <option value="all">All cuisines</option>
+              {cuisineOptions.map((cuisine) => (
+                <option key={cuisine.id} value={cuisine.id}>
+                  {cuisine.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="collection-control" htmlFor="collection-sort">
+            <span>Sort by</span>
+            <select
+              id="collection-sort"
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as RestaurantSort)}
+            >
+              <option value="newest">Newest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="rating">Highest rating</option>
+            </select>
+          </label>
+          {filtersActive && visibleRestaurants.length > 0 && (
+            <button
+              className="clear-filters-button"
+              type="button"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+        </section>
+      )}
+
       {loading ? (
         <div className="restaurant-list" aria-label="Loading your collection" aria-busy="true">
           {[0, 1, 2].map((item) => <div className="restaurant-skeleton" key={item}><span /><div><i /><b /><i /></div></div>)}
@@ -627,19 +724,38 @@ function CollectionPage({
           <p>Add the place you’re still thinking about. The one with the perfect dumplings, the window seat, or the kind stranger who brought dessert.</p>
           <JournalLink className="add-place-button" href="/restaurants/new" onNavigate={onNavigate}>Save your first place <span aria-hidden="true">↗</span></JournalLink>
         </div>
+      ) : visibleRestaurants.length === 0 ? (
+        <div className="journal-state filter-empty-state" role="status">
+          <span className="state-stamp" aria-hidden="true">0</span>
+          <p className="journal-eyebrow">No matches</p>
+          <h2>{starredOnly ? "No starred places match." : "No places match."}</h2>
+          <p>Try another name, city, or cuisine, or clear your filters to see all your places.</p>
+          <button
+            className="journal-secondary-button"
+            type="button"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <>
-          <div className="collection-meta">
+          <div className="collection-meta" aria-live="polite">
             <span>
-              {restaurants.length}{" "}
-              {starredOnly
-                ? restaurants.length === 1 ? "place starred" : "places starred"
-                : restaurants.length === 1 ? "place kept" : "places kept"}
+              {filtersActive
+                ? `${visibleRestaurants.length} of ${restaurants.length} ${
+                    starredOnly ? "starred places" : "places"
+                  }`
+                : `${restaurants.length} ${
+                    starredOnly
+                      ? restaurants.length === 1 ? "place starred" : "places starred"
+                      : restaurants.length === 1 ? "place kept" : "places kept"
+                  }`}
             </span>
             <span>{starredOnly ? "YOUR SHORTLIST" : "PRIVATE BY DESIGN"}</span>
           </div>
           <div className="restaurant-list">
-            {restaurants.map((restaurant) => (
+            {visibleRestaurants.map((restaurant) => (
               <RestaurantCard
                 key={restaurant.id}
                 restaurant={restaurant}
