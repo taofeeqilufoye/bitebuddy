@@ -489,6 +489,17 @@ describe("authenticated restaurant journal API", () => {
     await owner.put(starPath).set("x-csrf-token", ownerCsrf).expect(200, {
       isStarred: true,
     });
+    const otherUserCollection = await otherUser
+      .get("/api/restaurants")
+      .expect(200);
+    expect(
+      otherUserCollection.body.restaurants.some(
+        (restaurant: { id: number }) => restaurant.id === restaurantId,
+      ),
+    ).toBe(false);
+    await otherUser.get("/api/restaurants/starred").expect(200, {
+      restaurants: [],
+    });
     const starredCount = await pool.query(
       "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
       [ownerId, restaurantId],
