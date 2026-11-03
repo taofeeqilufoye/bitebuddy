@@ -12,6 +12,7 @@ export type Restaurant = {
   notes: string | null;
   rating: number | null;
   visited: boolean;
+  isStarred: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -87,11 +88,33 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
   return payload.restaurants;
 }
 
+export async function fetchStarredRestaurants(): Promise<Restaurant[]> {
+  const payload = await requestJson<{ restaurants: Restaurant[] }>(
+    "/api/restaurants/starred",
+  );
+  return payload.restaurants;
+}
+
 export async function fetchRestaurant(id: number): Promise<Restaurant> {
   const payload = await requestJson<{ restaurant: Restaurant }>(
     `/api/restaurants/${encodeURIComponent(id)}`,
   );
   return payload.restaurant;
+}
+
+export async function setRestaurantStar(
+  id: number,
+  isStarred: boolean,
+  csrfToken: string,
+): Promise<boolean> {
+  const payload = await requestJson<{ isStarred: boolean }>(
+    `/api/restaurants/${encodeURIComponent(id)}/star`,
+    {
+      method: isStarred ? "PUT" : "DELETE",
+      headers: { "x-csrf-token": csrfToken },
+    },
+  );
+  return payload.isStarred;
 }
 
 export async function createRestaurant(

@@ -45,6 +45,7 @@ describe("authenticated restaurant journal API", () => {
 
     await anonymous.get("/api/cuisines").expect(401);
     await anonymous.get("/api/restaurants").expect(401);
+    await anonymous.get("/api/restaurants/starred").expect(401);
     await anonymous.get("/api/restaurants/1").expect(401);
     await anonymous
       .post("/api/restaurants")
@@ -430,6 +431,136 @@ describe("authenticated restaurant journal API", () => {
       .delete(`/api/restaurants/${restaurantId}`)
       .set("x-csrf-token", ownerCsrf)
       .expect(404, { message: "Restaurant not found." });
+  });
+
+  it("stars only owned restaurants, is idempotent, persists, and cascades on delete", async () => {
+    const ownerEmail = `star-owner-${randomUUID()}@example.test`;
+    const otherEmail = `star-other-${randomUUID()}@example.test`;
+    const owner = request.agent(app);
+    const otherUser = request.agent(app);
+    const { userId: ownerId } = await signUp(owner, ownerEmail);
+    await signUp(otherUser, otherEmail);
+    const cuisinesResponse = await owner.get("/api/cuisines").expect(200);
+    const thai = cuisinesResponse.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Thai",
+    ) as { id: number } | undefined;
+    expect(thai).toBeDefined();
+
+    const ownerCsrf = await getCsrf(owner);
+    const otherCsrf = await getCsrf(otherUser);
+    const anonymous = request.agent(app);
+    const anonymousCsrf = await getCsrf(anonymous);
+    const created = await owner
+      .post("/api/restaurants")
+      .set("x-csrf-token", ownerCsrf)
+      .send({
+        name: "Star lifecycle fixture",
+        cuisineId: thai!.id,
+        city: null,
+        notes: null,
+        rating: null,
+      })
+      .expect(201);
+    const restaurantId = created.body.restaurant.id as number;
+    const starPath = `/api/restaurants/${restaurantId}/star`;
+
+    await anonymous
+      .put(starPath)
+      .set("x-csrf-token", anonymousCsrf)
+      .expect(401);
+    await owner.put(starPath).expect(403);
+    const foreignStar = await otherUser
+      .put(starPath)
+      .set("x-csrf-token", otherCsrf)
+      .expect(404);
+    const foreignUnstar = await otherUser
+      .delete(starPath)
+      .set("x-csrf-token", otherCsrf)
+      .expect(404);
+    expect(foreignStar.body).toEqual({ message: "Restaurant not found." });
+    expect(foreignUnstar.body).toEqual(foreignStar.body);
+    await otherUser.get("/api/restaurants/starred").expect(200, {
+      restaurants: [],
+    });
+
+    await owner.put(starPath).set("x-csrf-token", ownerCsrf).expect(200, {
+      isStarred: true,
+    });
+    await owner.put(starPath).set("x-csrf-token", ownerCsrf).expect(200, {
+      isStarred: true,
+    });
+    const starredCount = await pool.query(
+      "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
+      [ownerId, restaurantId],
+    );
+    expect(starredCount.rows[0].count).toBe(1);
+
+    const starredCollection = await owner
+      .get("/api/restaurants/starred")
+      .expect(200);
+    expect(starredCollection.body.restaurants).toHaveLength(1);
+    expect(starredCollection.body.restaurants[0]).toMatchObject({
+      id: restaurantId,
+      isStarred: true,
+    });
+    const regularCollection = await owner.get("/api/restaurants").expect(200);
+    expect(
+      regularCollection.body.restaurants.find(
+        (restaurant: { id: number }) => restaurant.id === restaurantId,
+      ),
+    ).toMatchObject({ isStarred: true });
+
+    await owner
+      .post("/api/auth/logout")
+      .set("x-csrf-token", ownerCsrf)
+      .send({})
+      .expect(200);
+    const reauthenticatedOwner = request.agent(app);
+    const loginCsrf = await getCsrf(reauthenticatedOwner);
+    const loginResponse = await reauthenticatedOwner
+      .post("/api/auth/login")
+      .set("x-csrf-token", loginCsrf)
+      .send({ email: ownerEmail, password: testPassword })
+      .expect(200);
+    const reauthenticatedCsrf = loginResponse.body.csrfToken as string;
+    const persistedStar = await reauthenticatedOwner
+      .get("/api/restaurants/starred")
+      .expect(200);
+    expect(persistedStar.body.restaurants[0]).toMatchObject({
+      id: restaurantId,
+      isStarred: true,
+    });
+
+    await reauthenticatedOwner
+      .delete(starPath)
+      .set("x-csrf-token", reauthenticatedCsrf)
+      .expect(200, { isStarred: false });
+    await reauthenticatedOwner
+      .delete(starPath)
+      .set("x-csrf-token", reauthenticatedCsrf)
+      .expect(200, { isStarred: false });
+    const emptyStarredView = await reauthenticatedOwner
+      .get("/api/restaurants/starred")
+      .expect(200);
+    expect(emptyStarredView.body.restaurants).toEqual([]);
+    const unstarredRestaurant = await reauthenticatedOwner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(unstarredRestaurant.body.restaurant.isStarred).toBe(false);
+
+    await reauthenticatedOwner
+      .put(starPath)
+      .set("x-csrf-token", reauthenticatedCsrf)
+      .expect(200, { isStarred: true });
+    await reauthenticatedOwner
+      .delete(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", reauthenticatedCsrf)
+      .expect(200, { ok: true });
+    const starsAfterRestaurantDelete = await pool.query(
+      "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
+      [ownerId, restaurantId],
+    );
+    expect(starsAfterRestaurantDelete.rows[0].count).toBe(0);
   });
 
   it("blocks invalid create and edit inputs without storing or changing rows", async () => {

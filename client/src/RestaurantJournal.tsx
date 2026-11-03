@@ -7,6 +7,8 @@ import {
   fetchCuisines,
   fetchRestaurant,
   fetchRestaurants,
+  fetchStarredRestaurants,
+  setRestaurantStar,
   updateRestaurant,
 } from "./api";
 import type { CreateRestaurantInput, Cuisine, Restaurant } from "./api";
@@ -18,6 +20,7 @@ import {
 
 type JournalRoute =
   | { page: "collection" }
+  | { page: "starred" }
   | { page: "new" }
   | { page: "edit"; id: number }
   | { page: "detail"; id: number }
@@ -25,6 +28,7 @@ type JournalRoute =
 
 function routeFor(path: string): JournalRoute {
   if (path === "/" || path === "") return { page: "collection" };
+  if (path === "/restaurants/starred") return { page: "starred" };
   if (path === "/restaurants/new") return { page: "new" };
   const editMatch = path.match(/^\/restaurants\/([1-9]\d*)\/edit$/);
   if (editMatch) {
@@ -88,25 +92,91 @@ function Rating({ rating }: { rating: number | null }) {
   );
 }
 
-function RestaurantCard({ restaurant, onNavigate }: { restaurant: Restaurant; onNavigate: (path: string) => void }) {
+function StarToggleButton({
+  restaurant,
+  busy,
+  disabled,
+  className,
+  describedBy,
+  onToggle,
+}: {
+  restaurant: Restaurant;
+  busy: boolean;
+  disabled?: boolean;
+  className: string;
+  describedBy?: string;
+  onToggle: () => void;
+}) {
+  const accessibleName = busy
+    ? `Saving starred status for ${restaurant.name}`
+    : restaurant.isStarred
+      ? `Remove ${restaurant.name} from Starred`
+      : `Add ${restaurant.name} to Starred`;
+
   return (
-    <JournalLink
-      href={`/restaurants/${restaurant.id}`}
-      onNavigate={onNavigate}
-      className="restaurant-card"
+    <button
+      className={className}
+      type="button"
+      aria-label={accessibleName}
+      aria-pressed={restaurant.isStarred}
+      aria-busy={busy}
+      aria-describedby={describedBy}
+      disabled={busy || disabled}
+      onClick={onToggle}
     >
-      <span className="card-index" aria-hidden="true">{String(restaurant.id).padStart(2, "0")}</span>
-      <span className="card-body">
-        <span className="card-cuisine">{restaurant.cuisineName}</span>
-        <span className="card-name">{restaurant.name}</span>
-        <span className="card-location">{restaurant.city || "A place to remember"}</span>
-        {restaurant.notes && <span className="card-note">{restaurant.notes}</span>}
-      </span>
-      <span className="card-aside">
-        <Rating rating={restaurant.rating} />
-        <span className="card-arrow" aria-hidden="true">↗</span>
-      </span>
-    </JournalLink>
+      {busy ? "Saving…" : restaurant.isStarred ? "Starred" : "Star"}
+    </button>
+  );
+}
+
+function RestaurantCard({
+  restaurant,
+  onNavigate,
+  onToggleStar,
+  starBusy,
+  starDisabled,
+  starError,
+}: {
+  restaurant: Restaurant;
+  onNavigate: (path: string) => void;
+  onToggleStar: (restaurant: Restaurant) => void;
+  starBusy: boolean;
+  starDisabled: boolean;
+  starError: string;
+}) {
+  const starErrorId = `star-error-${restaurant.id}`;
+
+  return (
+    <article className="restaurant-card">
+      <JournalLink
+        href={`/restaurants/${restaurant.id}`}
+        onNavigate={onNavigate}
+        className="restaurant-card-link"
+      >
+        <span className="card-index" aria-hidden="true">{String(restaurant.id).padStart(2, "0")}</span>
+        <span className="card-body">
+          <span className="card-cuisine">{restaurant.cuisineName}</span>
+          <span className="card-name">{restaurant.name}</span>
+          <span className="card-location">{restaurant.city || "A place to remember"}</span>
+          {restaurant.notes && <span className="card-note">{restaurant.notes}</span>}
+        </span>
+        <span className="card-aside">
+          <Rating rating={restaurant.rating} />
+          <span className="card-arrow" aria-hidden="true">↗</span>
+        </span>
+      </JournalLink>
+      <div className="card-star-action">
+        <StarToggleButton
+          className="star-toggle"
+          restaurant={restaurant}
+          busy={starBusy}
+          disabled={starDisabled}
+          describedBy={starError ? starErrorId : undefined}
+          onToggle={() => onToggleStar(restaurant)}
+        />
+        {starError && <p className="star-action-error" id={starErrorId} role="alert">{starError}</p>}
+      </div>
+    </article>
   );
 }
 
@@ -443,34 +513,87 @@ function RestaurantForm({
   );
 }
 
-function CollectionPage({ onNavigate }: { onNavigate: (path: string) => void }) {
+function CollectionPage({
+  csrfToken,
+  onNavigate,
+  starredOnly = false,
+}: {
+  csrfToken: string;
+  onNavigate: (path: string) => void;
+  starredOnly?: boolean;
+}) {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [starBusyId, setStarBusyId] = useState<number | null>(null);
+  const [starError, setStarError] = useState<{ id: number; message: string } | null>(null);
 
   async function loadRestaurants() {
     setLoading(true);
     setError("");
+    setStarError(null);
     try {
-      setRestaurants(await fetchRestaurants());
+      setRestaurants(
+        starredOnly ? await fetchStarredRestaurants() : await fetchRestaurants(),
+      );
     } catch {
-      setError("Your collection couldn’t be reached just now. Please try again.");
+      setError(
+        starredOnly
+          ? "Your starred places couldn’t be reached just now. Please try again."
+          : "Your collection couldn’t be reached just now. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  async function toggleStar(restaurant: Restaurant) {
+    if (starBusyId !== null || !csrfToken) return;
+    const nextState = !restaurant.isStarred;
+    setStarBusyId(restaurant.id);
+    setStarError(null);
+    try {
+      const isStarred = await setRestaurantStar(
+        restaurant.id,
+        nextState,
+        csrfToken,
+      );
+      setRestaurants((current) => {
+        if (starredOnly && !isStarred) {
+          return current.filter((item) => item.id !== restaurant.id);
+        }
+        return current.map((item) =>
+          item.id === restaurant.id ? { ...item, isStarred } : item,
+        );
+      });
+    } catch (reason) {
+      setStarError({
+        id: restaurant.id,
+        message:
+          reason instanceof ApiError
+            ? reason.message
+            : "Your starred places couldn’t be updated. Check your connection and try again.",
+      });
+    } finally {
+      setStarBusyId(null);
+    }
+  }
+
   useEffect(() => {
     void loadRestaurants();
-  }, []);
+  }, [starredOnly]);
 
   return (
     <section className="journal-content collection-content" aria-labelledby="collection-heading">
       <div className="collection-heading-row">
         <div>
-          <p className="journal-eyebrow">Your private restaurant journal</p>
-          <h1 id="collection-heading">Places with a story.</h1>
-          <p className="journal-lede">A little record of the tables, tastes, and moments you want to keep.</p>
+          <p className="journal-eyebrow">{starredOnly ? "Your starred places" : "Your private restaurant journal"}</p>
+          <h1 id="collection-heading">{starredOnly ? "The ones to return to." : "Places with a story."}</h1>
+          <p className="journal-lede">
+            {starredOnly
+              ? "A small shortlist of places you want to keep close."
+              : "A little record of the tables, tastes, and moments you want to keep."}
+          </p>
         </div>
         <JournalLink className="add-place-button" href="/restaurants/new" onNavigate={onNavigate}>
           <span aria-hidden="true">+</span> Add a place
@@ -488,6 +611,14 @@ function CollectionPage({ onNavigate }: { onNavigate: (path: string) => void }) 
           <p>{error}</p>
           <button className="journal-secondary-button" type="button" onClick={() => void loadRestaurants()}>Try again</button>
         </div>
+      ) : restaurants.length === 0 && starredOnly ? (
+        <div className="journal-state empty-state">
+          <span className="empty-illustration" aria-hidden="true"><i /><b /></span>
+          <p className="journal-eyebrow">Nothing starred yet</p>
+          <h2>Your shortlist starts with a star.</h2>
+          <p>Star a place from your collection or its detail page, and it will be easy to find here.</p>
+          <JournalLink className="add-place-button" href="/" onNavigate={onNavigate}>Browse your collection <span aria-hidden="true">↗</span></JournalLink>
+        </div>
       ) : restaurants.length === 0 ? (
         <div className="journal-state empty-state">
           <span className="empty-illustration" aria-hidden="true"><i /><b /></span>
@@ -499,11 +630,26 @@ function CollectionPage({ onNavigate }: { onNavigate: (path: string) => void }) 
       ) : (
         <>
           <div className="collection-meta">
-            <span>{restaurants.length} {restaurants.length === 1 ? "place" : "places"} kept</span>
-            <span>PRIVATE BY DESIGN</span>
+            <span>
+              {restaurants.length}{" "}
+              {starredOnly
+                ? restaurants.length === 1 ? "place starred" : "places starred"
+                : restaurants.length === 1 ? "place kept" : "places kept"}
+            </span>
+            <span>{starredOnly ? "YOUR SHORTLIST" : "PRIVATE BY DESIGN"}</span>
           </div>
           <div className="restaurant-list">
-            {restaurants.map((restaurant) => <RestaurantCard key={restaurant.id} restaurant={restaurant} onNavigate={onNavigate} />)}
+            {restaurants.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                onNavigate={onNavigate}
+                onToggleStar={toggleStar}
+                starBusy={starBusyId === restaurant.id}
+                starDisabled={starBusyId !== null || !csrfToken}
+                starError={starError?.id === restaurant.id ? starError.message : ""}
+              />
+            ))}
           </div>
         </>
       )}
@@ -526,6 +672,8 @@ function DetailPage({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [starBusy, setStarBusy] = useState(false);
+  const [starError, setStarError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -562,6 +710,30 @@ function DetailPage({
       );
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function toggleStar() {
+    if (!restaurant || !csrfToken || starBusy) return;
+    setStarBusy(true);
+    setStarError("");
+    try {
+      const isStarred = await setRestaurantStar(
+        restaurant.id,
+        !restaurant.isStarred,
+        csrfToken,
+      );
+      setRestaurant((current) =>
+        current ? { ...current, isStarred } : current,
+      );
+    } catch (reason) {
+      setStarError(
+        reason instanceof ApiError
+          ? reason.message
+          : "Your starred places couldn’t be updated. Check your connection and try again.",
+      );
+    } finally {
+      setStarBusy(false);
     }
   }
 
@@ -622,6 +794,14 @@ function DetailPage({
         >
           Edit details
         </JournalLink>
+        <StarToggleButton
+          className="detail-star-button"
+          restaurant={restaurant}
+          busy={starBusy}
+          disabled={!csrfToken}
+          describedBy={starError ? "detail-star-error" : undefined}
+          onToggle={() => void toggleStar()}
+        />
         <button
           className="detail-delete-button"
           type="button"
@@ -633,6 +813,7 @@ function DetailPage({
           Delete restaurant
         </button>
       </div>
+      {starError && <p className="star-action-error detail-star-error" id="detail-star-error" role="alert">{starError}</p>}
       {confirmingDelete && (
         <div
           className="delete-confirmation"
@@ -705,6 +886,7 @@ export default function RestaurantJournal({
         <Brand />
         <nav className="journal-nav" aria-label="Main navigation">
           <JournalLink className={route.page === "collection" || route.page === "detail" || route.page === "edit" ? "nav-current" : ""} href="/" onNavigate={navigate}>My collection</JournalLink>
+          <JournalLink className={`journal-nav-starred${route.page === "starred" ? " nav-current" : ""}`} href="/restaurants/starred" onNavigate={navigate}>Starred</JournalLink>
           <JournalLink className="nav-add" href="/restaurants/new" onNavigate={navigate}>Add a place <span aria-hidden="true">+</span></JournalLink>
           <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
             {loggingOut ? "Signing out…" : "Log out"}
@@ -712,7 +894,8 @@ export default function RestaurantJournal({
         </nav>
       </header>
       {logoutError && <p className="journal-logout-error" role="alert">{logoutError}</p>}
-      {route.page === "collection" && <CollectionPage onNavigate={navigate} />}
+      {route.page === "collection" && <CollectionPage csrfToken={csrfToken} onNavigate={navigate} />}
+      {route.page === "starred" && <CollectionPage csrfToken={csrfToken} onNavigate={navigate} starredOnly />}
       {route.page === "new" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} />}
       {route.page === "edit" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} restaurantId={route.id} />}
       {route.page === "detail" && <DetailPage id={route.id} csrfToken={csrfToken} onNavigate={navigate} />}
