@@ -431,4 +431,146 @@ describe("authenticated restaurant journal API", () => {
       .set("x-csrf-token", ownerCsrf)
       .expect(404, { message: "Restaurant not found." });
   });
+
+  it("blocks invalid create and edit inputs without storing or changing rows", async () => {
+    const email = `restaurant-validation-${randomUUID()}@example.test`;
+    const owner = request.agent(app);
+    const { userId } = await signUp(owner, email);
+    const cuisines = await owner.get("/api/cuisines").expect(200);
+    const thai = cuisines.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Thai",
+    ) as { id: number } | undefined;
+    expect(thai).toBeDefined();
+    const csrfToken = await getCsrf(owner);
+    const validInput = {
+      name: "Validation fixture",
+      cuisineId: thai!.id,
+      city: null,
+      notes: null,
+      rating: null,
+    };
+    const invalidCreates: Array<{
+      field: string;
+      input: Record<string, unknown>;
+    }> = [
+      { field: "name", input: { ...validInput, name: "   " } },
+      { field: "name", input: { ...validInput, name: "n".repeat(201) } },
+      {
+        field: "cuisineId",
+        input: { ...validInput, cuisineId: undefined },
+      },
+      {
+        field: "cuisineId",
+        input: { ...validInput, cuisineId: 2_147_483_647 },
+      },
+      { field: "city", input: { ...validInput, city: "c".repeat(121) } },
+      { field: "notes", input: { ...validInput, notes: "n".repeat(5_001) } },
+      { field: "rating", input: { ...validInput, rating: 0.9 } },
+      { field: "rating", input: { ...validInput, rating: 5.1 } },
+      { field: "rating", input: { ...validInput, rating: 4.56 } },
+    ];
+
+    for (const invalid of invalidCreates) {
+      const response = await owner
+        .post("/api/restaurants")
+        .set("x-csrf-token", csrfToken)
+        .send(invalid.input)
+        .expect(400);
+      expect(response.body.errors[invalid.field]).toEqual(expect.any(String));
+    }
+
+    const countAfterInvalidCreates = await pool.query(
+      "SELECT count(*)::int AS count FROM restaurants WHERE user_id = $1",
+      [userId],
+    );
+    expect(countAfterInvalidCreates.rows[0].count).toBe(0);
+    await owner.get("/api/restaurants").expect(200, { restaurants: [] });
+
+    const created = await owner
+      .post("/api/restaurants")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        ...validInput,
+        city: "",
+        notes: " ",
+        rating: 4.6,
+      })
+      .expect(201);
+    const restaurantId = created.body.restaurant.id as number;
+    expect(created.body.restaurant).toMatchObject({
+      name: validInput.name,
+      city: null,
+      notes: null,
+      rating: 4.6,
+    });
+    const createdWithoutRating = await owner
+      .post("/api/restaurants")
+      .set("x-csrf-token", csrfToken)
+      .send({
+        ...validInput,
+        name: "Blank rating create fixture",
+        rating: null,
+      })
+      .expect(201);
+    expect(createdWithoutRating.body.restaurant.rating).toBeNull();
+    const listAfterValidCreates = await owner.get("/api/restaurants").expect(200);
+    expect(listAfterValidCreates.body.restaurants).toHaveLength(2);
+    const originalDetail = await owner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+
+    const invalidUpdates: Array<{
+      field: string;
+      input: Record<string, unknown>;
+    }> = [
+      { field: "name", input: { name: "  " } },
+      { field: "name", input: { name: "u".repeat(201) } },
+      { field: "cuisineId", input: { cuisineId: 2_147_483_647 } },
+      { field: "city", input: { city: "c".repeat(121) } },
+      { field: "notes", input: { notes: "n".repeat(5_001) } },
+      { field: "rating", input: { rating: 4.56 } },
+      { field: "rating", input: { rating: 0.9 } },
+      { field: "rating", input: { rating: 5.1 } },
+    ];
+
+    for (const invalid of invalidUpdates) {
+      const response = await owner
+        .patch(`/api/restaurants/${restaurantId}`)
+        .set("x-csrf-token", csrfToken)
+        .send(invalid.input)
+        .expect(400);
+      expect(response.body.errors[invalid.field]).toEqual(expect.any(String));
+    }
+
+    const unchangedDetail = await owner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(unchangedDetail.body.restaurant).toEqual(
+      originalDetail.body.restaurant,
+    );
+
+    const updated = await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", csrfToken)
+      .send({
+        name: "Validated edit fixture",
+        city: "",
+        notes: " ",
+        rating: 4.5,
+      })
+      .expect(200);
+    expect(updated.body.restaurant).toMatchObject({
+      name: "Validated edit fixture",
+      city: null,
+      notes: null,
+      rating: 4.5,
+    });
+
+    const clearedRating = await owner
+      .patch(`/api/restaurants/${restaurantId}`)
+      .set("x-csrf-token", csrfToken)
+      .send({ rating: null })
+      .expect(200);
+    expect(clearedRating.body.restaurant.rating).toBeNull();
+  });
 });
