@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
 import {
   ApiError,
@@ -9,7 +9,12 @@ import {
   fetchRestaurants,
   updateRestaurant,
 } from "./api";
-import type { Cuisine, Restaurant } from "./api";
+import type { CreateRestaurantInput, Cuisine, Restaurant } from "./api";
+import {
+  RESTAURANT_LIMITS,
+  restaurantInputSchema,
+  restaurantRatingInputSchema,
+} from "../../server/validation";
 
 type JournalRoute =
   | { page: "collection" }
@@ -129,6 +134,14 @@ function RestaurantForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [focusFirstError, setFocusFirstError] = useState(false);
+  const fieldRefs = {
+    name: useRef<HTMLInputElement>(null),
+    cuisineId: useRef<HTMLSelectElement>(null),
+    city: useRef<HTMLInputElement>(null),
+    rating: useRef<HTMLInputElement>(null),
+    notes: useRef<HTMLTextAreaElement>(null),
+  };
 
   async function loadCuisines() {
     setCuisinesLoading(true);
@@ -178,30 +191,60 @@ function RestaurantForm({
     };
   }, [restaurantId, restaurantRetry]);
 
+  useEffect(() => {
+    if (!focusFirstError) return;
+    const firstField = ["name", "cuisineId", "city", "rating", "notes"].find(
+      (field) => Boolean(errors[field]),
+    );
+    if (firstField) fieldRefs[firstField as keyof typeof fieldRefs].current?.focus();
+    setFocusFirstError(false);
+  }, [errors, focusFirstError]);
+
+  function clearFieldError(field: string) {
+    setErrors((current) => ({ ...current, [field]: "" }));
+    setFormError("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    const ratingResult = restaurantRatingInputSchema.safeParse(rating);
+    const parsed = restaurantInputSchema.safeParse({
+      name,
+      cuisineId: cuisineId ? Number(cuisineId) : undefined,
+      city: city.trim() || null,
+      notes: notes.trim() || null,
+      rating: ratingResult.success ? ratingResult.data : null,
+    });
     const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.name = "Enter a restaurant name.";
-    if (!cuisineId) nextErrors.cuisineId = "Choose a cuisine.";
-    if (rating && (!Number.isFinite(Number(rating)) || Number(rating) < 1 || Number(rating) > 5 || !/^\d(?:\.\d)?$/.test(rating))) {
-      nextErrors.rating = "Use a rating from 1.0 to 5.0, with up to one decimal place.";
+    if (!ratingResult.success) {
+      nextErrors.rating = ratingResult.error.issues[0]?.message ?? "Enter a valid rating.";
+    }
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string" && !nextErrors[field]) {
+          nextErrors[field] = issue.message;
+        }
+      }
     }
     setErrors(nextErrors);
-    setFormError("");
-    if (Object.keys(nextErrors).length > 0) return;
+    const hasErrors = Object.keys(nextErrors).length > 0;
+    setFormError(hasErrors ? "Please correct the highlighted fields." : "");
+    setFocusFirstError(hasErrors);
+    if (hasErrors || !parsed.success || !ratingResult.success) return;
     if (!csrfToken) {
       setFormError("Your secure session is not ready. Refresh the page and try again.");
       return;
     }
     setSaving(true);
     try {
-      const input = {
-        name: name.trim(),
-        cuisineId: Number(cuisineId),
-        city: city.trim() || null,
-        notes: notes.trim() || null,
-        rating: rating ? Number(rating) : null,
+      const input: CreateRestaurantInput = {
+        name: parsed.data.name,
+        cuisineId: parsed.data.cuisineId,
+        city: parsed.data.city ?? null,
+        notes: parsed.data.notes ?? null,
+        rating: parsed.data.rating ?? null,
       };
       const saved = isEditing
         ? await updateRestaurant(restaurantId, input, csrfToken)
@@ -211,6 +254,7 @@ function RestaurantForm({
       if (error instanceof ApiError) {
         setErrors(error.errors);
         setFormError(error.message);
+        setFocusFirstError(Object.keys(error.errors).length > 0);
       } else {
         setFormError("We couldn’t save this place. Check your connection and try again.");
       }
@@ -266,14 +310,15 @@ function RestaurantForm({
             id="restaurant-name"
             name="name"
             autoComplete="organization"
-            maxLength={200}
+            maxLength={RESTAURANT_LIMITS.nameCharacters}
+            ref={fieldRefs.name}
             placeholder="The name on the door"
             value={name}
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? "restaurant-name-error" : undefined}
             onChange={(event) => {
               setName(event.target.value);
-              setErrors((current) => ({ ...current, name: "" }));
+              clearFieldError("name");
             }}
             required
           />
@@ -295,12 +340,13 @@ function RestaurantForm({
             <select
               id="restaurant-cuisine"
               name="cuisineId"
+              ref={fieldRefs.cuisineId}
               value={cuisineId}
               aria-invalid={Boolean(errors.cuisineId)}
               aria-describedby={errors.cuisineId ? "restaurant-cuisine-error" : undefined}
               onChange={(event) => {
                 setCuisineId(event.target.value);
-                setErrors((current) => ({ ...current, cuisineId: "" }));
+                clearFieldError("cuisineId");
               }}
               required
             >
@@ -317,12 +363,16 @@ function RestaurantForm({
             id="restaurant-city"
             name="city"
             autoComplete="address-level2"
-            maxLength={120}
+            maxLength={RESTAURANT_LIMITS.cityCharacters}
+            ref={fieldRefs.city}
             placeholder="Where you found it"
             value={city}
             aria-invalid={Boolean(errors.city)}
             aria-describedby={errors.city ? "restaurant-city-error" : undefined}
-            onChange={(event) => setCity(event.target.value)}
+            onChange={(event) => {
+              setCity(event.target.value);
+              clearFieldError("city");
+            }}
           />
           {errors.city && <p className="journal-field-error" id="restaurant-city-error">{errors.city}</p>}
         </div>
@@ -337,13 +387,14 @@ function RestaurantForm({
             min="1"
             max="5"
             step="0.1"
+            ref={fieldRefs.rating}
             placeholder="Leave blank if you’re not sure"
             value={rating}
             aria-invalid={Boolean(errors.rating)}
             aria-describedby={errors.rating ? "restaurant-rating-error" : "rating-hint"}
             onChange={(event) => {
               setRating(event.target.value);
-              setErrors((current) => ({ ...current, rating: "" }));
+              clearFieldError("rating");
             }}
           />
           {errors.rating
@@ -356,13 +407,17 @@ function RestaurantForm({
           <textarea
             id="restaurant-notes"
             name="notes"
-            maxLength={5000}
+            maxLength={RESTAURANT_LIMITS.notesCharacters}
             rows={5}
+            ref={fieldRefs.notes}
             placeholder="What would you like to remember?"
             value={notes}
             aria-invalid={Boolean(errors.notes)}
             aria-describedby={errors.notes ? "restaurant-notes-error" : undefined}
-            onChange={(event) => setNotes(event.target.value)}
+            onChange={(event) => {
+              setNotes(event.target.value);
+              clearFieldError("notes");
+            }}
           />
           {errors.notes && <p className="journal-field-error" id="restaurant-notes-error">{errors.notes}</p>}
         </div>

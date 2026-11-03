@@ -50,11 +50,14 @@ describe("account flow", () => {
     expect(storedPassword.rows[0].password_hash).not.toBe(testPassword);
     expect(storedPassword.rows[0].password_hash).toMatch(/^\$2[aby]\$12\$/);
 
-    await agent
+    const duplicateSignup = await agent
       .post("/api/auth/signup")
       .set("x-csrf-token", signup.body.csrfToken as string)
       .send({ email: testEmail.toUpperCase(), password: testPassword })
       .expect(409);
+    expect(duplicateSignup.body.errors.email).toMatch(
+      /may already have an account/i,
+    );
 
     await agent
       .post("/api/auth/logout")
@@ -93,11 +96,32 @@ describe("account flow", () => {
       .expect(403);
 
     const csrfToken = await getCsrf(agent);
-    await agent
+    const invalidSignup = await agent
       .post("/api/auth/signup")
       .set("x-csrf-token", csrfToken)
       .send({ email: "not-an-email", password: "short" })
       .expect(400);
+    expect(invalidSignup.body.errors).toMatchObject({
+      email: "Enter a valid email address.",
+      password: "Use at least 12 characters for your password.",
+    });
+
+    const longUtf8Email = `utf8-limit-${randomUUID()}@example.test`;
+    const longUtf8Password = "😀".repeat(19);
+    const longUtf8Response = await agent
+      .post("/api/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .send({ email: longUtf8Email, password: longUtf8Password })
+      .expect(400);
+    expect(longUtf8Response.body.errors.password).toMatch(/72 UTF-8 bytes/);
+    expect(JSON.stringify(longUtf8Response.body)).not.toContain(
+      longUtf8Password,
+    );
+    const rejectedUser = await pool.query(
+      "SELECT count(*)::int AS count FROM users WHERE email = $1",
+      [longUtf8Email],
+    );
+    expect(rejectedUser.rows[0].count).toBe(0);
 
     await agent
       .post("/api/auth/signup")

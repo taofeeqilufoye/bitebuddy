@@ -11,6 +11,12 @@ import path from "node:path";
 import { z } from "zod";
 import { db, pool } from "./db/client.js";
 import { cuisines, restaurants, users } from "./db/schema.js";
+import {
+  loginSchema,
+  restaurantInputSchema,
+  restaurantUpdateSchema,
+  signupSchema,
+} from "./validation.js";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -135,68 +141,6 @@ function requireCsrf(req: Request, res: Response, next: () => void): void {
   next();
 }
 
-const emailSchema = z
-  .string()
-  .trim()
-  .min(1, "Enter your email address.")
-  .max(254, "Email addresses must be 254 characters or fewer.")
-  .email("Enter a valid email address.");
-
-const signupSchema = z.object({
-  email: emailSchema,
-  password: z
-    .string()
-    .min(12, "Use at least 12 characters for your password.")
-    .max(72, "Use no more than 72 characters for your password."),
-});
-
-const loginSchema = z.object({
-  email: emailSchema,
-  password: z
-    .string()
-    .min(1, "Enter your password.")
-    .max(72, "Password must be 72 characters or fewer."),
-});
-
-const restaurantInputSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Enter a restaurant name.")
-    .max(200, "Restaurant names must be 200 characters or fewer."),
-  cuisineId: z.number().int().positive("Choose a cuisine."),
-  city: z
-    .string()
-    .trim()
-    .max(120, "City must be 120 characters or fewer.")
-    .nullable()
-    .optional(),
-  notes: z
-    .string()
-    .trim()
-    .max(5_000, "Notes must be 5,000 characters or fewer.")
-    .nullable()
-    .optional(),
-  rating: z
-    .number()
-    .finite()
-    .min(1, "Rating must be from 1.0 to 5.0.")
-    .max(5, "Rating must be from 1.0 to 5.0.")
-    .refine(
-      (value) => Number(value.toFixed(1)) === value,
-      "Rating must use one decimal place.",
-    )
-    .nullable()
-    .optional(),
-});
-
-const restaurantUpdateSchema = restaurantInputSchema
-  .partial()
-  .strict()
-  .refine((input) => Object.keys(input).length > 0, {
-    message: "Update at least one restaurant detail.",
-  });
-
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
@@ -264,14 +208,6 @@ app.post(
       return;
     }
 
-    if (Buffer.byteLength(parsed.data.password, "utf8") > 72) {
-      res.status(400).json({
-        message: "Check the highlighted fields.",
-        errors: { password: "Use a password that is 72 UTF-8 bytes or fewer." },
-      });
-      return;
-    }
-
     const email = parsed.data.email.toLowerCase();
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
@@ -285,6 +221,9 @@ app.post(
       if (isUniqueViolation(error)) {
         res.status(409).json({
           message: "That email may already have an account. Try signing in.",
+          errors: {
+            email: "That email may already have an account. Try signing in.",
+          },
         });
         return;
       }
@@ -302,14 +241,6 @@ app.post(
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, parsed.error.issues);
-      return;
-    }
-
-    if (Buffer.byteLength(parsed.data.password, "utf8") > 72) {
-      res.status(400).json({
-        message: "Check the highlighted fields.",
-        errors: { password: "Password must be 72 UTF-8 bytes or fewer." },
-      });
       return;
     }
 

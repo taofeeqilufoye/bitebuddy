@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import RestaurantJournal from "./RestaurantJournal";
 import "./index.css";
+import {
+  ACCOUNT_LIMITS,
+  loginSchema,
+  signupSchema,
+} from "../../server/validation";
 
 type User = {
   id: number;
@@ -59,12 +64,32 @@ function AuthPage({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [focusFirstError, setFocusFirstError] = useState(false);
+  const fieldRefs = {
+    email: useRef<HTMLInputElement>(null),
+    password: useRef<HTMLInputElement>(null),
+  };
 
   const isSignup = mode === "signup";
+
+  useEffect(() => {
+    if (!focusFirstError) return;
+    const firstField = (["email", "password"] as const).find(
+      (field) => Boolean(fieldErrors[field]),
+    );
+    if (firstField) fieldRefs[firstField].current?.focus();
+    setFocusFirstError(false);
+  }, [fieldErrors, focusFirstError]);
+
+  function clearFieldError(field: keyof FieldErrors) {
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+    setFormError("");
+  }
 
   function switchMode(nextMode: AuthMode) {
     setFieldErrors({});
     setFormError("");
+    setFocusFirstError(false);
     setPassword("");
     onModeChange(nextMode);
   }
@@ -73,21 +98,29 @@ function AuthPage({
     event.preventDefault();
     if (submitting) return;
 
-    const nextErrors: FieldErrors = {};
-    const normalizedEmail = email.trim();
-    if (!normalizedEmail) nextErrors.email = "Enter your email address.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      nextErrors.email = "Enter an email address in the format name@example.com.";
+    const parsed = (isSignup ? signupSchema : loginSchema).safeParse({
+      email,
+      password,
+    });
+    if (!parsed.success) {
+      const nextErrors: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (
+          (field === "email" || field === "password") &&
+          !nextErrors[field]
+        ) {
+          nextErrors[field] = issue.message;
+        }
+      }
+      setFieldErrors(nextErrors);
+      setFormError("Please correct the highlighted account details.");
+      setFocusFirstError(Object.keys(nextErrors).length > 0);
+      return;
     }
-    if (!password) nextErrors.password = "Enter your password.";
-    else if (isSignup && password.length < 12) {
-      nextErrors.password = "Use at least 12 characters for your password.";
-    } else if (isSignup && new TextEncoder().encode(password).length > 72) {
-      nextErrors.password = "Use no more than 72 UTF-8 bytes for your password.";
-    }
-    setFieldErrors(nextErrors);
+    setFieldErrors({});
     setFormError("");
-    if (Object.keys(nextErrors).length > 0) return;
+    setFocusFirstError(false);
 
     if (!csrfToken) {
       setFormError("Your secure session is not ready yet. Please try again.");
@@ -103,7 +136,7 @@ function AuthPage({
           "Content-Type": "application/json",
           "x-csrf-token": csrfToken,
         },
-        body: JSON.stringify({ email: normalizedEmail, password }),
+        body: JSON.stringify(parsed.data),
       });
       const payload = await readPayload(response);
       if (!response.ok) {
@@ -112,6 +145,9 @@ function AuthPage({
           email: apiFieldErrors.email,
           password: apiFieldErrors.password,
         });
+        setFocusFirstError(
+          Boolean(apiFieldErrors.email || apiFieldErrors.password),
+        );
         setFormError(
           payload.message ||
             payload.error ||
@@ -155,15 +191,16 @@ function AuthPage({
                 name="email"
                 type="email"
                 inputMode="email"
+                maxLength={ACCOUNT_LIMITS.emailCharacters}
                 placeholder="you@example.com"
                 value={email}
                 aria-invalid={Boolean(fieldErrors.email)}
                 aria-describedby={fieldErrors.email ? "email-error" : undefined}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  setFieldErrors((current) => ({ ...current, email: undefined }));
-                  setFormError("");
+                  clearFieldError("email");
                 }}
+                ref={fieldRefs.email}
                 disabled={submitting}
                 required
               />
@@ -182,15 +219,15 @@ function AuthPage({
                 name="password"
                 type="password"
                 placeholder={isSignup ? "At least 12 characters" : "Your password"}
-                maxLength={72}
+                maxLength={ACCOUNT_LIMITS.passwordCharacters}
                 value={password}
                 aria-invalid={Boolean(fieldErrors.password)}
                 aria-describedby={fieldErrors.password ? "password-error" : undefined}
                 onChange={(event) => {
                   setPassword(event.target.value);
-                  setFieldErrors((current) => ({ ...current, password: undefined }));
-                  setFormError("");
+                  clearFieldError("password");
                 }}
+                ref={fieldRefs.password}
                 disabled={submitting}
                 required
               />
