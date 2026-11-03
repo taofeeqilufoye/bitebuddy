@@ -1006,7 +1006,7 @@ export default function RestaurantJournal({
         <nav className="journal-nav" aria-label="Main navigation">
           <JournalLink className={route.page === "collection" || route.page === "detail" || route.page === "edit" ? "nav-current" : ""} href="/" onNavigate={navigate}>My collection</JournalLink>
           <JournalLink className={`journal-nav-starred${route.page === "starred" ? " nav-current" : ""}`} href="/restaurants/starred" onNavigate={navigate}>Starred</JournalLink>
-          <JournalLink className={route.page === "dashboard" ? "nav-current" : ""} href="/dashboard" onNavigate={navigate}>Dashboard</JournalLink>
+          <JournalLink className={`journal-nav-dashboard${route.page === "dashboard" ? " nav-current" : ""}`} href="/dashboard" onNavigate={navigate}>Dashboard</JournalLink>
           <JournalLink className="nav-add" href="/restaurants/new" onNavigate={navigate}>Add a place <span aria-hidden="true">+</span></JournalLink>
           <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
             {loggingOut ? "Signing out…" : "Log out"}

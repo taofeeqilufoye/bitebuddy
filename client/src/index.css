@@ -1787,7 +1787,7 @@ input:focus-visible {
     gap: 15px;
   }
 
-  .journal-nav > a:not(.nav-add):not(.journal-nav-starred) {
+  .journal-nav > a:not(.nav-add):not(.journal-nav-starred):not(.journal-nav-dashboard) {
     display: none;
   }
 
@@ -1851,6 +1851,9 @@ input:focus-visible {
     min-height: 69px;
     gap: 10px;
     padding: 0 17px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 
   .journal-brand {
@@ -1865,10 +1868,13 @@ input:focus-visible {
   }
 
   .journal-nav {
+    flex: 1 1 100%;
     gap: 8px;
+    justify-content: space-between;
   }
 
-  .journal-nav .journal-nav-starred {
+  .journal-nav .journal-nav-starred,
+  .journal-nav .journal-nav-dashboard {
     font-size: 11px;
   }
 

@@ -44,3 +44,20 @@
 > Independent supervising-assistant development UI check (not human user): existing empty test account, clicked Dashboard nav -> /dashboard, loaded Saved0,Visited0,Average rating “No ratings yet”, Cuisine count empty message. No new records created.
 
 This check confirmed navigation and the empty saved/visited/rating/chart states. The supervising assistant, not the human user, performed the UI check. No application records were created or changed for it.
+
+## Responsive-navigation review correction
+
+- CSS review found the existing `max-width: 760px` navigation rule hid ordinary links except Starred and Add a place, which also hid the newly added Dashboard link. Added a named `journal-nav-dashboard` class and exempted it from that hide rule. At the existing narrowest breakpoint, the header now wraps its nav onto a full-width row and keeps Dashboard visible.
+- The attempted browser viewport override did not apply: the DOM still reported `innerWidth === 1280`. No phone-size browser check was completed, and none is claimed. The CSS fix is based on inspection of the active media query; the supervising assistant may verify the small-screen layout independently.
+
+### Exact follow-up prompt
+
+> Final dashboard review found a small responsive-navigation issue: existing mobile CSS hides .journal-nav > a:not(.nav-add):not(.journal-nav-starred), so new Dashboard is hidden below that breakpoint. Please keep Dashboard reachable on small screens using a named class/exemption and minimal header/nav wrapping if needed. No redesign. Browser viewport override did not actually apply (DOM innerWidth stayed1280), so do not claim a phone browser check. Record honest CSS review finding in prompts/dashboard.md, typecheck/build only as appropriate; prior20APItests already passed and need not repeat for CSS/nav class. Commit/push feature/dashboard only, report final SHA; no main/merge/publish.
+
+### Follow-up verification
+
+- `npm run typecheck` — passed.
+- `npm run build` — passed. Vite retained its non-blocking bundle-size advisory (713.79 kB minified client JavaScript).
+- `git diff --check` — passed.
+- The earlier API suite remains 5 files / 20 passing tests. It was not rerun for this CSS/navigation-class-only change, as requested.
+- No mobile viewport browser check was completed: the attempted override left `innerWidth` at 1280. The code correction is documented as CSS inspection, not a browser-verified phone result.
