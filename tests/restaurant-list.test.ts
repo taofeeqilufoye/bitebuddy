@@ -12,6 +12,7 @@ const restaurants: RestaurantListItem[] = [
     cuisineId: 1,
     rating: 4,
     createdAt: "2026-05-01T10:00:00.000Z",
+    visited: false,
   },
   {
     id: 3,
@@ -20,6 +21,7 @@ const restaurants: RestaurantListItem[] = [
     cuisineId: 2,
     rating: 4,
     createdAt: "2026-05-03T10:00:00.000Z",
+    visited: false,
   },
   {
     id: 11,
@@ -28,6 +30,7 @@ const restaurants: RestaurantListItem[] = [
     cuisineId: 2,
     rating: 5,
     createdAt: "2026-05-03T10:00:00.000Z",
+    visited: true,
   },
   {
     id: 15,
@@ -36,6 +39,7 @@ const restaurants: RestaurantListItem[] = [
     cuisineId: 1,
     rating: null,
     createdAt: "2026-05-04T10:00:00.000Z",
+    visited: true,
   },
   {
     id: 2,
@@ -44,6 +48,7 @@ const restaurants: RestaurantListItem[] = [
     cuisineId: 2,
     rating: null,
     createdAt: "2026-05-02T10:00:00.000Z",
+    visited: false,
   },
 ];
 
@@ -52,11 +57,13 @@ describe("restaurant collection filtering and sorting", () => {
     const byName = filterAndSortRestaurants(restaurants, {
       query: "  bIsTrO ",
       cuisineId: null,
+      visited: null,
       sort: "newest",
     });
     const byCity = filterAndSortRestaurants(restaurants, {
       query: "nEw YoRk",
       cuisineId: null,
+      visited: null,
       sort: "newest",
     });
 
@@ -68,6 +75,7 @@ describe("restaurant collection filtering and sorting", () => {
     const result = filterAndSortRestaurants(restaurants, {
       query: "la",
       cuisineId: 2,
+      visited: null,
       sort: "name",
     });
 
@@ -78,6 +86,7 @@ describe("restaurant collection filtering and sorting", () => {
     const result = filterAndSortRestaurants(restaurants, {
       query: "",
       cuisineId: null,
+      visited: null,
       sort: "name",
     });
 
@@ -88,6 +97,7 @@ describe("restaurant collection filtering and sorting", () => {
     const result = filterAndSortRestaurants(restaurants, {
       query: "",
       cuisineId: null,
+      visited: null,
       sort: "rating",
     });
 
@@ -98,6 +108,7 @@ describe("restaurant collection filtering and sorting", () => {
     const result = filterAndSortRestaurants(restaurants, {
       query: "",
       cuisineId: null,
+      visited: null,
       sort: "newest",
     });
 
@@ -109,9 +120,28 @@ describe("restaurant collection filtering and sorting", () => {
     filterAndSortRestaurants(restaurants, {
       query: "",
       cuisineId: null,
+      visited: null,
       sort: "name",
     });
 
     expect(restaurants.map((restaurant) => restaurant.id)).toEqual(originalIds);
+  });
+
+  it("combines visited status with search, cuisine, and sort filters", () => {
+    const visitedLagos = filterAndSortRestaurants(restaurants, {
+      query: "lagos",
+      cuisineId: 2,
+      visited: true,
+      sort: "rating",
+    });
+    const wantToTryCuisine = filterAndSortRestaurants(restaurants, {
+      query: "",
+      cuisineId: 2,
+      visited: false,
+      sort: "name",
+    });
+
+    expect(visitedLagos.map((restaurant) => restaurant.id)).toEqual([11]);
+    expect(wantToTryCuisine.map((restaurant) => restaurant.id)).toEqual([3, 2]);
   });
 });

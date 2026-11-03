@@ -10,6 +10,7 @@ import {
   fetchRestaurants,
   fetchStarredRestaurants,
   setRestaurantStar,
+  setRestaurantVisited,
   updateRestaurant,
 } from "./api";
 import type { CreateRestaurantInput, Cuisine, Restaurant } from "./api";
@@ -140,22 +141,66 @@ function StarToggleButton({
   );
 }
 
+function VisitedToggleButton({
+  restaurant,
+  busy,
+  disabled,
+  describedBy,
+  className,
+  onToggle,
+}: {
+  restaurant: Restaurant;
+  busy: boolean;
+  disabled?: boolean;
+  describedBy?: string;
+  className: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className={className}
+      type="button"
+      aria-label={
+        busy
+          ? `Saving visited status for ${restaurant.name}`
+          : `Visited status for ${restaurant.name}`
+      }
+      aria-pressed={restaurant.visited}
+      aria-busy={busy}
+      aria-describedby={describedBy}
+      disabled={busy || disabled}
+      onClick={onToggle}
+    >
+      {busy ? "Saving…" : restaurant.visited ? "Visited" : "Want to try"}
+    </button>
+  );
+}
+
 function RestaurantCard({
   restaurant,
   onNavigate,
   onToggleStar,
+  onToggleVisited,
   starBusy,
   starDisabled,
   starError,
+  visitedBusy,
+  visitedDisabled,
+  visitedError,
 }: {
   restaurant: Restaurant;
   onNavigate: (path: string) => void;
   onToggleStar: (restaurant: Restaurant) => void;
+  onToggleVisited: (restaurant: Restaurant) => void;
   starBusy: boolean;
   starDisabled: boolean;
   starError: string;
+  visitedBusy: boolean;
+  visitedDisabled: boolean;
+  visitedError: string;
 }) {
   const starErrorId = `star-error-${restaurant.id}`;
+  const visitedErrorId = `visited-error-${restaurant.id}`;
 
   return (
     <article className="restaurant-card">
@@ -176,7 +221,7 @@ function RestaurantCard({
           <span className="card-arrow" aria-hidden="true">↗</span>
         </span>
       </JournalLink>
-      <div className="card-star-action">
+      <div className="card-place-actions">
         <StarToggleButton
           className="star-toggle"
           restaurant={restaurant}
@@ -185,7 +230,16 @@ function RestaurantCard({
           describedBy={starError ? starErrorId : undefined}
           onToggle={() => onToggleStar(restaurant)}
         />
+        <VisitedToggleButton
+          className="visited-toggle"
+          restaurant={restaurant}
+          busy={visitedBusy}
+          disabled={visitedDisabled}
+          describedBy={visitedError ? visitedErrorId : undefined}
+          onToggle={() => onToggleVisited(restaurant)}
+        />
         {starError && <p className="star-action-error" id={starErrorId} role="alert">{starError}</p>}
+        {visitedError && <p className="star-action-error" id={visitedErrorId} role="alert">{visitedError}</p>}
       </div>
     </article>
   );
@@ -538,8 +592,11 @@ function CollectionPage({
   const [error, setError] = useState("");
   const [starBusyId, setStarBusyId] = useState<number | null>(null);
   const [starError, setStarError] = useState<{ id: number; message: string } | null>(null);
+  const [visitedBusyId, setVisitedBusyId] = useState<number | null>(null);
+  const [visitedError, setVisitedError] = useState<{ id: number; message: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState<number | null>(null);
+  const [visitedFilter, setVisitedFilter] = useState<boolean | null>(null);
   const [sortMode, setSortMode] = useState<RestaurantSort>("newest");
   const [pickedRestaurantId, setPickedRestaurantId] = useState<number | null>(
     null,
@@ -564,9 +621,10 @@ function CollectionPage({
       filterAndSortRestaurants(restaurants, {
         query: searchTerm,
         cuisineId: cuisineFilter,
+        visited: visitedFilter,
         sort: sortMode,
       }),
-    [restaurants, searchTerm, cuisineFilter, sortMode],
+    [restaurants, searchTerm, cuisineFilter, visitedFilter, sortMode],
   );
   const pickedRestaurant =
     pickedRestaurantId === null
@@ -576,6 +634,7 @@ function CollectionPage({
   const filtersActive =
     searchTerm.trim().length > 0 ||
     cuisineFilter !== null ||
+    visitedFilter !== null ||
     sortMode !== "newest";
 
   useEffect(() => {
@@ -587,6 +646,7 @@ function CollectionPage({
   function clearFilters() {
     setSearchTerm("");
     setCuisineFilter(null);
+    setVisitedFilter(null);
     setSortMode("newest");
   }
 
@@ -599,6 +659,7 @@ function CollectionPage({
     setLoading(true);
     setError("");
     setStarError(null);
+    setVisitedError(null);
     try {
       setRestaurants(
         starredOnly ? await fetchStarredRestaurants() : await fetchRestaurants(),
@@ -643,6 +704,35 @@ function CollectionPage({
       });
     } finally {
       setStarBusyId(null);
+    }
+  }
+
+  async function toggleVisited(restaurant: Restaurant) {
+    if (visitedBusyId !== null || !csrfToken) return;
+    const nextVisited = !restaurant.visited;
+    setVisitedBusyId(restaurant.id);
+    setVisitedError(null);
+    try {
+      const visited = await setRestaurantVisited(
+        restaurant.id,
+        nextVisited,
+        csrfToken,
+      );
+      setRestaurants((current) =>
+        current.map((item) =>
+          item.id === restaurant.id ? { ...item, visited } : item,
+        ),
+      );
+    } catch (reason) {
+      setVisitedError({
+        id: restaurant.id,
+        message:
+          reason instanceof ApiError
+            ? reason.message
+            : "This visit status couldn’t be updated. Check your connection and try again.",
+      });
+    } finally {
+      setVisitedBusyId(null);
     }
   }
 
@@ -728,6 +818,30 @@ function CollectionPage({
                   {cuisine.name}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="collection-control" htmlFor="collection-visited">
+            <span>Status</span>
+            <select
+              id="collection-visited"
+              value={
+                visitedFilter === null
+                  ? "all"
+                  : visitedFilter
+                    ? "visited"
+                    : "want-to-try"
+              }
+              onChange={(event) =>
+                setVisitedFilter(
+                  event.target.value === "all"
+                    ? null
+                    : event.target.value === "visited",
+                )
+              }
+            >
+              <option value="all">All places</option>
+              <option value="visited">Visited</option>
+              <option value="want-to-try">Want to try</option>
             </select>
           </label>
           <label className="collection-control" htmlFor="collection-sort">
@@ -818,9 +932,13 @@ function CollectionPage({
                 restaurant={restaurant}
                 onNavigate={onNavigate}
                 onToggleStar={toggleStar}
+                onToggleVisited={toggleVisited}
                 starBusy={starBusyId === restaurant.id}
                 starDisabled={starBusyId !== null || !csrfToken}
                 starError={starError?.id === restaurant.id ? starError.message : ""}
+                visitedBusy={visitedBusyId === restaurant.id}
+                visitedDisabled={visitedBusyId !== null || !csrfToken}
+                visitedError={visitedError?.id === restaurant.id ? visitedError.message : ""}
               />
             ))}
           </div>
@@ -847,6 +965,8 @@ function DetailPage({
   const [deleteError, setDeleteError] = useState("");
   const [starBusy, setStarBusy] = useState(false);
   const [starError, setStarError] = useState("");
+  const [visitedBusy, setVisitedBusy] = useState(false);
+  const [visitedError, setVisitedError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -907,6 +1027,30 @@ function DetailPage({
       );
     } finally {
       setStarBusy(false);
+    }
+  }
+
+  async function toggleVisited() {
+    if (!restaurant || !csrfToken || visitedBusy) return;
+    setVisitedBusy(true);
+    setVisitedError("");
+    try {
+      const visited = await setRestaurantVisited(
+        restaurant.id,
+        !restaurant.visited,
+        csrfToken,
+      );
+      setRestaurant((current) =>
+        current ? { ...current, visited } : current,
+      );
+    } catch (reason) {
+      setVisitedError(
+        reason instanceof ApiError
+          ? reason.message
+          : "This visit status couldn’t be updated. Check your connection and try again.",
+      );
+    } finally {
+      setVisitedBusy(false);
     }
   }
 
@@ -975,6 +1119,14 @@ function DetailPage({
           describedBy={starError ? "detail-star-error" : undefined}
           onToggle={() => void toggleStar()}
         />
+        <VisitedToggleButton
+          className="detail-visited-button"
+          restaurant={restaurant}
+          busy={visitedBusy}
+          disabled={!csrfToken}
+          describedBy={visitedError ? "detail-visited-error" : undefined}
+          onToggle={() => void toggleVisited()}
+        />
         <button
           className="detail-delete-button"
           type="button"
@@ -987,6 +1139,7 @@ function DetailPage({
         </button>
       </div>
       {starError && <p className="star-action-error detail-star-error" id="detail-star-error" role="alert">{starError}</p>}
+      {visitedError && <p className="star-action-error detail-visited-error" id="detail-visited-error" role="alert">{visitedError}</p>}
       {confirmingDelete && (
         <div
           className="delete-confirmation"

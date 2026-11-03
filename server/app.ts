@@ -416,6 +416,45 @@ app.get("/api/restaurants/starred", requireAuthenticated, async (req, res) => {
   res.json({ restaurants: rows });
 });
 
+app.put(
+  "/api/restaurants/:id/visited",
+  requireJson,
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const id = parseRestaurantId(req.params.id);
+    if (id === null) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const visited = req.body?.visited;
+    if (typeof visited !== "boolean") {
+      res.status(400).json({ message: "Choose a valid visited status." });
+      return;
+    }
+
+    const [updated] = await db
+      .update(restaurants)
+      .set({ visited, updatedAt: new Date() })
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .returning({ visited: restaurants.visited });
+
+    if (!updated) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ visited: updated.visited });
+  },
+);
+
 app.post(
   "/api/restaurants",
   requireJson,
