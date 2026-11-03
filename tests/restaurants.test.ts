@@ -46,6 +46,7 @@ describe("authenticated restaurant journal API", () => {
     await anonymous.get("/api/cuisines").expect(401);
     await anonymous.get("/api/restaurants").expect(401);
     await anonymous.get("/api/restaurants/starred").expect(401);
+    await anonymous.get("/api/dashboard").expect(401);
     await anonymous.get("/api/restaurants/1").expect(401);
     await anonymous
       .post("/api/restaurants")
@@ -714,5 +715,116 @@ describe("authenticated restaurant journal API", () => {
       .send({ rating: null })
       .expect(200);
     expect(clearedRating.body.restaurant.rating).toBeNull();
+  });
+
+  it("reports owner-only dashboard totals and cuisine counts for the full collection", async () => {
+    const owner = request.agent(app);
+    const otherOwner = request.agent(app);
+    const emptyOwner = request.agent(app);
+    await signUp(owner, `dashboard-owner-${randomUUID()}@example.test`);
+    await signUp(otherOwner, `dashboard-other-${randomUUID()}@example.test`);
+    await signUp(emptyOwner, `dashboard-empty-${randomUUID()}@example.test`);
+
+    const cuisinesResponse = await owner.get("/api/cuisines").expect(200);
+    const thai = cuisinesResponse.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Thai",
+    ) as { id: number } | undefined;
+    const nigerian = cuisinesResponse.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Nigerian",
+    ) as { id: number } | undefined;
+    expect(thai).toBeDefined();
+    expect(nigerian).toBeDefined();
+
+    const ownerCsrf = await getCsrf(owner);
+    const otherCsrf = await getCsrf(otherOwner);
+    async function createFixture(
+      agent: ReturnType<typeof request.agent>,
+      csrfToken: string,
+      name: string,
+      cuisineId: number,
+      rating: number | null,
+    ) {
+      const response = await agent
+        .post("/api/restaurants")
+        .set("x-csrf-token", csrfToken)
+        .send({
+          name,
+          cuisineId,
+          city: null,
+          notes: null,
+          rating,
+        })
+        .expect(201);
+      return response.body.restaurant.id as number;
+    }
+
+    const visitedId = await createFixture(
+      owner,
+      ownerCsrf,
+      "Dashboard visited fixture",
+      thai!.id,
+      5,
+    );
+    await createFixture(owner, ownerCsrf, "Dashboard rating fixture", thai!.id, 3);
+    await createFixture(
+      owner,
+      ownerCsrf,
+      "Dashboard unrated fixture",
+      nigerian!.id,
+      null,
+    );
+    await createFixture(
+      otherOwner,
+      otherCsrf,
+      "Other user's dashboard fixture",
+      thai!.id,
+      5,
+    );
+    await createFixture(
+      otherOwner,
+      otherCsrf,
+      "Other user's dashboard rounding fixture",
+      thai!.id,
+      4.1,
+    );
+    await pool.query(
+      "UPDATE restaurants SET visited = true WHERE id = $1",
+      [visitedId],
+    );
+
+    const ownerDashboard = await owner.get("/api/dashboard").expect(200);
+    expect(ownerDashboard.headers["cache-control"]).toBe("no-store");
+    expect(ownerDashboard.body).toEqual({
+      totalSaved: 3,
+      visitedCount: 1,
+      averageRating: 4,
+      cuisineCounts: [
+        { cuisineId: nigerian!.id, cuisineName: "Nigerian", count: 1 },
+        { cuisineId: thai!.id, cuisineName: "Thai", count: 2 },
+      ],
+    });
+
+    const ownerDashboardWithListParameters = await owner
+      .get("/api/dashboard?search=unmatched&cuisineId=999999")
+      .expect(200);
+    expect(ownerDashboardWithListParameters.body).toEqual(ownerDashboard.body);
+
+    const otherDashboard = await otherOwner.get("/api/dashboard").expect(200);
+    expect(otherDashboard.body).toEqual({
+      totalSaved: 2,
+      visitedCount: 0,
+      averageRating: 4.6,
+      cuisineCounts: [
+        { cuisineId: thai!.id, cuisineName: "Thai", count: 2 },
+      ],
+    });
+
+    const emptyDashboard = await emptyOwner.get("/api/dashboard").expect(200);
+    expect(emptyDashboard.body).toEqual({
+      totalSaved: 0,
+      visitedCount: 0,
+      averageRating: null,
+      cuisineCounts: [],
+    });
   });
 });

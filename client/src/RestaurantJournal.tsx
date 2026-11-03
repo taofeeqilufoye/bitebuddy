@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
+import DashboardPage from "./DashboardPage";
 import {
   ApiError,
   createRestaurant,
@@ -25,6 +26,7 @@ import {
 type JournalRoute =
   | { page: "collection" }
   | { page: "starred" }
+  | { page: "dashboard" }
   | { page: "new" }
   | { page: "edit"; id: number }
   | { page: "detail"; id: number }
@@ -33,6 +35,7 @@ type JournalRoute =
 function routeFor(path: string): JournalRoute {
   if (path === "/" || path === "") return { page: "collection" };
   if (path === "/restaurants/starred") return { page: "starred" };
+  if (path === "/dashboard") return { page: "dashboard" };
   if (path === "/restaurants/new") return { page: "new" };
   const editMatch = path.match(/^\/restaurants\/([1-9]\d*)\/edit$/);
   if (editMatch) {
@@ -1003,6 +1006,7 @@ export default function RestaurantJournal({
         <nav className="journal-nav" aria-label="Main navigation">
           <JournalLink className={route.page === "collection" || route.page === "detail" || route.page === "edit" ? "nav-current" : ""} href="/" onNavigate={navigate}>My collection</JournalLink>
           <JournalLink className={`journal-nav-starred${route.page === "starred" ? " nav-current" : ""}`} href="/restaurants/starred" onNavigate={navigate}>Starred</JournalLink>
+          <JournalLink className={route.page === "dashboard" ? "nav-current" : ""} href="/dashboard" onNavigate={navigate}>Dashboard</JournalLink>
           <JournalLink className="nav-add" href="/restaurants/new" onNavigate={navigate}>Add a place <span aria-hidden="true">+</span></JournalLink>
           <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
             {loggingOut ? "Signing out…" : "Log out"}
@@ -1012,6 +1016,7 @@ export default function RestaurantJournal({
       {logoutError && <p className="journal-logout-error" role="alert">{logoutError}</p>}
       {route.page === "collection" && <CollectionPage csrfToken={csrfToken} onNavigate={navigate} />}
       {route.page === "starred" && <CollectionPage csrfToken={csrfToken} onNavigate={navigate} starredOnly />}
+      {route.page === "dashboard" && <DashboardPage />}
       {route.page === "new" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} />}
       {route.page === "edit" && <RestaurantForm csrfToken={csrfToken} onNavigate={navigate} restaurantId={route.id} />}
       {route.page === "detail" && <DetailPage id={route.id} csrfToken={csrfToken} onNavigate={navigate} />}
