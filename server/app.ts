@@ -345,6 +345,37 @@ app.get("/api/cuisines", requireAuthenticated, async (_req, res) => {
   res.json({ cuisines: rows });
 });
 
+app.get("/api/dashboard", requireAuthenticated, async (req, res) => {
+  const userId = req.session.userId!;
+  const [summary] = await db
+    .select({
+      totalSaved: sql<number>`count(*)::int`,
+      visitedCount: sql<number>`count(*) filter (where ${restaurants.visited})::int`,
+      averageRating: sql<number | null>`round(avg(${restaurants.rating})::numeric, 1)::float8`,
+    })
+    .from(restaurants)
+    .where(eq(restaurants.userId, userId));
+  const cuisineCounts = await db
+    .select({
+      cuisineId: cuisines.id,
+      cuisineName: cuisines.name,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(restaurants)
+    .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+    .where(eq(restaurants.userId, userId))
+    .groupBy(cuisines.id, cuisines.name)
+    .orderBy(asc(cuisines.name));
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    totalSaved: summary.totalSaved,
+    visitedCount: summary.visitedCount,
+    averageRating: summary.averageRating,
+    cuisineCounts,
+  });
+});
+
 app.get("/api/restaurants", requireAuthenticated, async (req, res) => {
   const userId = req.session.userId!;
   const rows = await db

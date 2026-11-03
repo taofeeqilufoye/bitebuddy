@@ -17,6 +17,17 @@ export type Restaurant = {
   updatedAt: string;
 };
 
+export type DashboardStats = {
+  totalSaved: number;
+  visitedCount: number;
+  averageRating: number | null;
+  cuisineCounts: Array<{
+    cuisineId: number;
+    cuisineName: string;
+    count: number;
+  }>;
+};
+
 export type CreateRestaurantInput = {
   name: string;
   cuisineId: number;
@@ -79,6 +90,10 @@ async function requestJson<T>(
 export async function fetchCuisines(): Promise<Cuisine[]> {
   const payload = await requestJson<{ cuisines: Cuisine[] }>("/api/cuisines");
   return payload.cuisines;
+}
+
+export async function fetchDashboard(): Promise<DashboardStats> {
+  return requestJson<DashboardStats>("/api/dashboard");
 }
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
