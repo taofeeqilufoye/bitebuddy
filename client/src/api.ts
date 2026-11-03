@@ -108,3 +108,32 @@ export async function createRestaurant(
   );
   return payload.restaurant;
 }
+
+export async function updateRestaurant(
+  id: number,
+  input: CreateRestaurantInput,
+  csrfToken: string,
+): Promise<Restaurant> {
+  const payload = await requestJson<{ restaurant: Restaurant }>(
+    `/api/restaurants/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { "x-csrf-token": csrfToken },
+      body: JSON.stringify(input),
+    },
+  );
+  return payload.restaurant;
+}
+
+export async function deleteRestaurant(
+  id: number,
+  csrfToken: string,
+): Promise<void> {
+  await requestJson<{ ok: true }>(
+    `/api/restaurants/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: { "x-csrf-token": csrfToken },
+    },
+  );
+}
