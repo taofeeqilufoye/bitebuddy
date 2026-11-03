@@ -6,11 +6,11 @@ import type { ErrorRequestHandler, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import helmet from "helmet";
-import { eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import path from "node:path";
 import { z } from "zod";
 import { db, pool } from "./db/client.js";
-import { users } from "./db/schema.js";
+import { cuisines, restaurants, users } from "./db/schema.js";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -89,6 +89,18 @@ function requireJson(req: Request, res: Response, next: () => void): void {
   next();
 }
 
+function requireAuthenticated(
+  req: Request,
+  res: Response,
+  next: () => void,
+): void {
+  if (!req.session.userId) {
+    res.status(401).json({ message: "Sign in to continue." });
+    return;
+  }
+  next();
+}
+
 function requireCsrf(req: Request, res: Response, next: () => void): void {
   const expected = req.session.csrfToken;
   const received = req.get("x-csrf-token");
@@ -144,6 +156,38 @@ const loginSchema = z.object({
     .string()
     .min(1, "Enter your password.")
     .max(72, "Password must be 72 characters or fewer."),
+});
+
+const restaurantInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter a restaurant name.")
+    .max(200, "Restaurant names must be 200 characters or fewer."),
+  cuisineId: z.number().int().positive("Choose a cuisine."),
+  city: z
+    .string()
+    .trim()
+    .max(120, "City must be 120 characters or fewer.")
+    .nullable()
+    .optional(),
+  notes: z
+    .string()
+    .trim()
+    .max(5_000, "Notes must be 5,000 characters or fewer.")
+    .nullable()
+    .optional(),
+  rating: z
+    .number()
+    .finite()
+    .min(1, "Rating must be from 1.0 to 5.0.")
+    .max(5, "Rating must be from 1.0 to 5.0.")
+    .refine(
+      (value) => Number(value.toFixed(1)) === value,
+      "Rating must use one decimal place.",
+    )
+    .nullable()
+    .optional(),
 });
 
 const loginLimiter = rateLimit({
@@ -306,6 +350,156 @@ app.post(
       });
       res.json({ ok: true });
     });
+  },
+);
+
+const restaurantProjection = {
+  id: restaurants.id,
+  cuisineId: restaurants.cuisineId,
+  cuisineName: cuisines.name,
+  name: restaurants.name,
+  city: restaurants.city,
+  notes: restaurants.notes,
+  rating: restaurants.rating,
+  visited: restaurants.visited,
+  createdAt: restaurants.createdAt,
+  updatedAt: restaurants.updatedAt,
+};
+
+function sendRestaurantNotFound(res: Response): void {
+  res.status(404).json({ message: "Restaurant not found." });
+}
+
+function sendRestaurantValidationError(
+  res: Response,
+  issues: z.ZodIssue[],
+): void {
+  const errors: Record<string, string> = {};
+  for (const issue of issues) {
+    const field = issue.path[0];
+    if (typeof field === "string" && !errors[field]) {
+      errors[field] = issue.message;
+    }
+  }
+  res.status(400).json({ message: "Check the restaurant details.", errors });
+}
+
+app.get("/api/cuisines", requireAuthenticated, async (_req, res) => {
+  const rows = await db
+    .select({ id: cuisines.id, name: cuisines.name })
+    .from(cuisines)
+    .orderBy(asc(cuisines.name));
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ cuisines: rows });
+});
+
+app.get("/api/restaurants", requireAuthenticated, async (req, res) => {
+  const rows = await db
+    .select(restaurantProjection)
+    .from(restaurants)
+    .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+    .where(eq(restaurants.userId, req.session.userId!))
+    .orderBy(desc(restaurants.createdAt), desc(restaurants.id));
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ restaurants: rows });
+});
+
+app.post(
+  "/api/restaurants",
+  requireJson,
+  requireAuthenticated,
+  requireCsrf,
+  async (req, res) => {
+    const parsed = restaurantInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendRestaurantValidationError(res, parsed.error.issues);
+      return;
+    }
+
+    const [cuisine] = await db
+      .select({ id: cuisines.id })
+      .from(cuisines)
+      .where(eq(cuisines.id, parsed.data.cuisineId))
+      .limit(1);
+
+    if (!cuisine) {
+      res.status(400).json({
+        message: "Choose a cuisine from the list.",
+        errors: { cuisineId: "Choose a cuisine from the list." },
+      });
+      return;
+    }
+
+    const [created] = await db
+      .insert(restaurants)
+      .values({
+        userId: req.session.userId!,
+        cuisineId: cuisine.id,
+        name: parsed.data.name,
+        city: parsed.data.city?.trim() || null,
+        notes: parsed.data.notes?.trim() || null,
+        rating: parsed.data.rating ?? null,
+      })
+      .returning({ id: restaurants.id });
+
+    const [restaurant] = await db
+      .select(restaurantProjection)
+      .from(restaurants)
+      .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .where(
+        and(
+          eq(restaurants.id, created.id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .limit(1);
+
+    if (!restaurant) {
+      throw new Error("Created restaurant could not be reloaded.");
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.status(201).json({ restaurant });
+  },
+);
+
+app.get(
+  "/api/restaurants/:id",
+  requireAuthenticated,
+  async (req, res) => {
+    const idText = req.params.id;
+    if (typeof idText !== "string" || !/^[1-9]\d*$/.test(idText)) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const id = Number(idText);
+    if (!Number.isSafeInteger(id) || id > 2_147_483_647) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    const [restaurant] = await db
+      .select(restaurantProjection)
+      .from(restaurants)
+      .innerJoin(cuisines, eq(restaurants.cuisineId, cuisines.id))
+      .where(
+        and(
+          eq(restaurants.id, id),
+          eq(restaurants.userId, req.session.userId!),
+        ),
+      )
+      .limit(1);
+
+    if (!restaurant) {
+      sendRestaurantNotFound(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ restaurant });
   },
 );
 

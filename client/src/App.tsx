@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import RestaurantJournal from "./RestaurantJournal";
 import "./index.css";
 
 type User = {
@@ -264,52 +265,6 @@ function AuthPage({
   );
 }
 
-function WelcomePage({
-  user,
-  onLogout,
-  loggingOut,
-  logoutError,
-}: {
-  user: User;
-  onLogout: () => void;
-  loggingOut: boolean;
-  logoutError: string;
-}) {
-  return (
-    <main className="welcome-layout">
-      <header className="welcome-top">
-        <Brand />
-        <button className="logout-button" type="button" onClick={onLogout} disabled={loggingOut}>
-          {loggingOut ? "Signing out…" : "Log out"}
-        </button>
-      </header>
-      <section className="welcome-main" aria-labelledby="welcome-heading">
-        <div className="welcome-copy">
-          <p className="eyebrow">Your account is ready</p>
-          <h1 id="welcome-heading">Welcome to your own little corner.</h1>
-          <p>
-            This is your private BiteBuddy account. Whenever you’re ready, your food memories will
-            have a place to call home.
-          </p>
-          <span className="welcome-email">{user.email}</span>
-          {logoutError && (
-            <p className="form-error" role="alert" style={{ marginTop: 22 }}>
-              {logoutError}
-            </p>
-          )}
-        </div>
-        <div className="welcome-art" aria-hidden="true">
-          <div className="welcome-art-inner">b.</div>
-        </div>
-      </section>
-      <footer className="welcome-bottom">
-        <span>BITEBUDDY PERSONAL</span>
-        <span>A private account, just for you.</span>
-      </footer>
-    </main>
-  );
-}
-
 function App() {
   const [status, setStatus] = useState<AppStatus>("loading");
   const [user, setUser] = useState<User | null>(null);
@@ -444,8 +399,8 @@ function App() {
 
   if (status === "signed-in" && user) {
     return (
-      <WelcomePage
-        user={user}
+      <RestaurantJournal
+        csrfToken={csrfToken}
         onLogout={handleLogout}
         loggingOut={loggingOut}
         logoutError={logoutError}
