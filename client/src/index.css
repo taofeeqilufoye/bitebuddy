@@ -846,6 +846,70 @@ input:focus-visible {
   gap: 32px;
 }
 
+.collection-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.pick-for-me-button {
+  display: inline-flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid #d7aa99;
+  border-radius: 6px;
+  background: #fffaf4;
+  color: var(--terracotta-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 160ms ease;
+}
+
+.pick-for-me-button:hover:not(:disabled) {
+  background: #fff0e8;
+}
+
+.pick-for-me-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.random-pick-result {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 22px 0 0;
+  padding: 13px 16px;
+  border-left: 3px solid var(--terracotta);
+  background: #fffaf4;
+  color: #65564c;
+  font-size: 14px;
+}
+
+.random-pick-result > span {
+  color: #78685c;
+}
+
+.random-pick-result a {
+  color: var(--terracotta-dark);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.pick-empty-hint {
+  margin: 16px 0 0;
+  color: #78685c;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .journal-eyebrow {
   margin: 0 0 15px;
   color: var(--terracotta);

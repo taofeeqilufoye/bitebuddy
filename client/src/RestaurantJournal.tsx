@@ -18,6 +18,10 @@ import {
   type RestaurantSort,
 } from "./restaurantList";
 import {
+  keepPickedRestaurantId,
+  pickRandomRestaurant,
+} from "./randomPicker";
+import {
   RESTAURANT_LIMITS,
   restaurantInputSchema,
   restaurantRatingInputSchema,
@@ -537,6 +541,9 @@ function CollectionPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<RestaurantSort>("newest");
+  const [pickedRestaurantId, setPickedRestaurantId] = useState<number | null>(
+    null,
+  );
 
   const cuisineOptions = useMemo(() => {
     const cuisines = new Map<number, string>();
@@ -561,15 +568,31 @@ function CollectionPage({
       }),
     [restaurants, searchTerm, cuisineFilter, sortMode],
   );
+  const pickedRestaurant =
+    pickedRestaurantId === null
+      ? null
+      : visibleRestaurants.find((restaurant) => restaurant.id === pickedRestaurantId) ??
+        null;
   const filtersActive =
     searchTerm.trim().length > 0 ||
     cuisineFilter !== null ||
     sortMode !== "newest";
 
+  useEffect(() => {
+    setPickedRestaurantId((current) =>
+      keepPickedRestaurantId(current, visibleRestaurants),
+    );
+  }, [visibleRestaurants]);
+
   function clearFilters() {
     setSearchTerm("");
     setCuisineFilter(null);
     setSortMode("newest");
+  }
+
+  function pickForMe() {
+    const picked = pickRandomRestaurant(visibleRestaurants);
+    setPickedRestaurantId(picked?.id ?? null);
   }
 
   async function loadRestaurants() {
@@ -639,10 +662,41 @@ function CollectionPage({
               : "A little record of the tables, tastes, and moments you want to keep."}
           </p>
         </div>
-        <JournalLink className="add-place-button" href="/restaurants/new" onNavigate={onNavigate}>
-          <span aria-hidden="true">+</span> Add a place
-        </JournalLink>
+        <div className="collection-heading-actions">
+          <button
+            className="pick-for-me-button"
+            type="button"
+            disabled={loading || Boolean(error) || visibleRestaurants.length === 0}
+            onClick={pickForMe}
+          >
+            Pick for me
+          </button>
+          <JournalLink className="add-place-button" href="/restaurants/new" onNavigate={onNavigate}>
+            <span aria-hidden="true">+</span> Add a place
+          </JournalLink>
+        </div>
       </div>
+
+      {pickedRestaurant && !loading && !error && (
+        <p className="random-pick-result" role="status">
+          <span>Your pick:</span>{" "}
+          <JournalLink
+            href={`/restaurants/${pickedRestaurant.id}`}
+            onNavigate={onNavigate}
+          >
+            {pickedRestaurant.name}
+          </JournalLink>
+        </p>
+      )}
+      {!loading && !error && visibleRestaurants.length === 0 && (
+        <p className="pick-empty-hint" role="status">
+          {restaurants.length === 0
+            ? starredOnly
+              ? "Star a place from your collection before picking from your shortlist."
+              : "Add a place to your collection before picking."
+            : "No places match these filters. Clear them to pick from your collection."}
+        </p>
+      )}
 
       {!loading && !error && restaurants.length > 0 && (
         <section className="collection-controls" aria-label="Find places">
