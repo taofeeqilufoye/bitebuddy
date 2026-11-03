@@ -389,7 +389,6 @@ app.get("/api/restaurants", requireAuthenticated, async (req, res) => {
         eq(stars.userId, userId),
       ),
     )
-    .where(eq(restaurants.userId, userId))
     .orderBy(desc(restaurants.createdAt), desc(restaurants.id));
 
   res.setHeader("Cache-Control", "no-store");
