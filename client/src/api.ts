@@ -132,6 +132,22 @@ export async function setRestaurantStar(
   return payload.isStarred;
 }
 
+export async function setRestaurantVisited(
+  id: number,
+  visited: boolean,
+  csrfToken: string,
+): Promise<boolean> {
+  const payload = await requestJson<{ visited: boolean }>(
+    `/api/restaurants/${encodeURIComponent(id)}/visited`,
+    {
+      method: "PUT",
+      headers: { "x-csrf-token": csrfToken },
+      body: JSON.stringify({ visited }),
+    },
+  );
+  return payload.visited;
+}
+
 export async function createRestaurant(
   input: CreateRestaurantInput,
   csrfToken: string,

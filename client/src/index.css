@@ -969,7 +969,7 @@ input:focus-visible {
 
 .collection-controls {
   display: grid;
-  grid-template-columns: minmax(190px, 1.25fr) minmax(155px, 0.8fr) minmax(160px, 0.8fr) auto;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(145px, 0.8fr) minmax(135px, 0.75fr) minmax(145px, 0.8fr) auto;
   align-items: end;
   gap: 13px;
   margin-top: 37px;
@@ -1186,7 +1186,7 @@ input:focus-visible {
   transform: translate(2px, -2px);
 }
 
-.card-star-action {
+.card-place-actions {
   display: grid;
   justify-items: end;
   gap: 7px;
@@ -1194,7 +1194,9 @@ input:focus-visible {
 }
 
 .star-toggle,
-.detail-star-button {
+.detail-star-button,
+.visited-toggle,
+.detail-visited-button {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
@@ -1211,6 +1213,12 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.visited-toggle,
+.detail-visited-button {
+  border-color: #b8c3b5;
+  color: #425747;
+}
+
 .star-toggle[aria-pressed="true"],
 .detail-star-button[aria-pressed="true"] {
   border-color: #a63829;
@@ -1218,8 +1226,17 @@ input:focus-visible {
   color: #fff8f0;
 }
 
+.visited-toggle[aria-pressed="true"],
+.detail-visited-button[aria-pressed="true"] {
+  border-color: #526b57;
+  background: #526b57;
+  color: #fff8f0;
+}
+
 .star-toggle:hover:not(:disabled),
-.detail-star-button:hover:not(:disabled) {
+.detail-star-button:hover:not(:disabled),
+.visited-toggle:hover:not(:disabled),
+.detail-visited-button:hover:not(:disabled) {
   background: #fff0e8;
 }
 
@@ -1228,8 +1245,15 @@ input:focus-visible {
   background: #84291e;
 }
 
+.visited-toggle[aria-pressed="true"]:hover:not(:disabled),
+.detail-visited-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: #3f5544;
+}
+
 .star-toggle:disabled,
-.detail-star-button:disabled {
+.detail-star-button:disabled,
+.visited-toggle:disabled,
+.detail-visited-button:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -1245,7 +1269,9 @@ input:focus-visible {
 
 .restaurant-card-link:focus-visible,
 .star-toggle:focus-visible,
-.detail-star-button:focus-visible {
+.detail-star-button:focus-visible,
+.visited-toggle:focus-visible,
+.detail-visited-button:focus-visible {
   outline: 3px solid rgba(194, 65, 45, 0.35);
   outline-offset: 3px;
 }
@@ -1686,6 +1712,7 @@ input:focus-visible {
 
 .detail-edit-button,
 .detail-star-button,
+.detail-visited-button,
 .detail-delete-button,
 .confirm-delete-button {
   display: inline-flex;
@@ -1706,6 +1733,7 @@ input:focus-visible {
 
 .detail-edit-button:hover,
 .detail-star-button:hover,
+.detail-visited-button:hover,
 .detail-delete-button:hover {
   background: #fff0e8;
 }
@@ -1771,6 +1799,7 @@ input:focus-visible {
 
 .detail-edit-button:focus-visible,
 .detail-star-button:focus-visible,
+.detail-visited-button:focus-visible,
 .detail-delete-button:focus-visible,
 .confirm-delete-button:focus-visible {
   outline: 3px solid rgba(194, 65, 45, 0.35);
@@ -1886,7 +1915,7 @@ input:focus-visible {
     padding-top: 0;
   }
 
-  .card-star-action {
+  .card-place-actions {
     grid-column: 2;
     grid-row: 1;
     align-self: start;
@@ -1900,7 +1929,7 @@ input:focus-visible {
     grid-row: 1 / span 2;
   }
 
-  .card-star-action .star-action-error {
+  .card-place-actions .star-action-error {
     max-width: 150px;
   }
 
@@ -2006,17 +2035,18 @@ input:focus-visible {
     font-size: 26px;
   }
 
-  .card-star-action {
+  .card-place-actions {
     min-width: 0;
   }
 
-  .card-star-action .star-toggle {
+  .card-place-actions .star-toggle,
+  .card-place-actions .visited-toggle {
     min-height: 32px;
     padding: 0 9px;
     font-size: 11px;
   }
 
-  .card-star-action .star-action-error {
+  .card-place-actions .star-action-error {
     max-width: 120px;
   }
 

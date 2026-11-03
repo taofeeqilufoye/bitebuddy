@@ -14,6 +14,7 @@ const candidates: RestaurantListItem[] = [
     cuisineId: 1,
     rating: 4,
     createdAt: "2026-06-01T10:00:00.000Z",
+    visited: true,
   },
   {
     id: 20,
@@ -22,6 +23,7 @@ const candidates: RestaurantListItem[] = [
     cuisineId: 2,
     rating: null,
     createdAt: "2026-06-02T10:00:00.000Z",
+    visited: false,
   },
   {
     id: 30,
@@ -30,6 +32,7 @@ const candidates: RestaurantListItem[] = [
     cuisineId: 1,
     rating: 5,
     createdAt: "2026-06-03T10:00:00.000Z",
+    visited: true,
   },
 ];
 
@@ -50,6 +53,7 @@ describe("restaurant random picker", () => {
     const visible = filterAndSortRestaurants(candidates, {
       query: "lagos",
       cuisineId: 1,
+      visited: true,
       sort: "newest",
     });
     const picked = pickRandomRestaurant(visible, () => 0.99);

@@ -5,12 +5,13 @@ export type RestaurantSort = "newest" | "name" | "rating";
 export type RestaurantListFilters = {
   query: string;
   cuisineId: number | null;
+  visited: boolean | null;
   sort: RestaurantSort;
 };
 
 export type RestaurantListItem = Pick<
   Restaurant,
-  "id" | "name" | "city" | "cuisineId" | "rating" | "createdAt"
+  "id" | "name" | "city" | "cuisineId" | "rating" | "createdAt" | "visited"
 >;
 
 const nameCollator = new Intl.Collator(undefined, {
@@ -62,8 +63,10 @@ export function filterAndSortRestaurants<T extends RestaurantListItem>(
         (restaurant.city ?? "").toLocaleLowerCase().includes(query);
       const matchesCuisine =
         filters.cuisineId === null || restaurant.cuisineId === filters.cuisineId;
+      const matchesVisited =
+        filters.visited === null || restaurant.visited === filters.visited;
 
-      return matchesQuery && matchesCuisine;
+      return matchesQuery && matchesCuisine && matchesVisited;
     })
     .slice()
     .sort((left, right) => {

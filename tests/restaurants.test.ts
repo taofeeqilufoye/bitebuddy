@@ -49,6 +49,11 @@ describe("authenticated restaurant journal API", () => {
     await anonymous.get("/api/dashboard").expect(401);
     await anonymous.get("/api/restaurants/1").expect(401);
     await anonymous
+      .put("/api/restaurants/1/visited")
+      .set("x-csrf-token", csrfToken)
+      .send({ visited: true })
+      .expect(401);
+    await anonymous
       .post("/api/restaurants")
       .set("x-csrf-token", csrfToken)
       .send({
@@ -826,5 +831,150 @@ describe("authenticated restaurant journal API", () => {
       averageRating: null,
       cuisineCounts: [],
     });
+  });
+
+  it("persists visited status only for the owner, preserves other state, and updates dashboard totals", async () => {
+    const ownerEmail = `visited-owner-${randomUUID()}@example.test`;
+    const owner = request.agent(app);
+    const otherOwner = request.agent(app);
+    const anonymous = request.agent(app);
+    const { userId: ownerId } = await signUp(owner, ownerEmail);
+    await signUp(otherOwner, `visited-other-${randomUUID()}@example.test`);
+    const cuisines = await owner.get("/api/cuisines").expect(200);
+    const thai = cuisines.body.cuisines.find(
+      (cuisine: { name: string }) => cuisine.name === "Thai",
+    ) as { id: number } | undefined;
+    expect(thai).toBeDefined();
+
+    const ownerCsrf = await getCsrf(owner);
+    const otherCsrf = await getCsrf(otherOwner);
+    const anonymousCsrf = await getCsrf(anonymous);
+    const created = await owner
+      .post("/api/restaurants")
+      .set("x-csrf-token", ownerCsrf)
+      .send({
+        name: "Visited toggle integration fixture",
+        cuisineId: thai!.id,
+        city: "Portland",
+        notes: "Preserve this note when status changes.",
+        rating: 4.6,
+      })
+      .expect(201);
+    const restaurantId = created.body.restaurant.id as number;
+    const visitedPath = `/api/restaurants/${restaurantId}/visited`;
+
+    await owner
+      .put(`/api/restaurants/${restaurantId}/star`)
+      .set("x-csrf-token", ownerCsrf)
+      .expect(200, { isStarred: true });
+    await anonymous
+      .put(visitedPath)
+      .set("x-csrf-token", anonymousCsrf)
+      .send({ visited: true })
+      .expect(401);
+    await owner.put(visitedPath).send({ visited: true }).expect(403);
+    await otherOwner
+      .put(visitedPath)
+      .set("x-csrf-token", otherCsrf)
+      .send({ visited: true })
+      .expect(404, { message: "Restaurant not found." });
+    await owner
+      .put(visitedPath)
+      .set("x-csrf-token", ownerCsrf)
+      .send({ visited: "yes" })
+      .expect(400, { message: "Choose a valid visited status." });
+
+    const markedVisited = await owner
+      .put(visitedPath)
+      .set("x-csrf-token", ownerCsrf)
+      .send({ visited: true })
+      .expect(200, { visited: true });
+    expect(markedVisited.headers["cache-control"]).toBe("no-store");
+
+    const detail = await owner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(detail.body.restaurant).toMatchObject({
+      id: restaurantId,
+      visited: true,
+      rating: 4.6,
+      city: "Portland",
+      notes: "Preserve this note when status changes.",
+      isStarred: true,
+    });
+    const storedRestaurant = await pool.query<{
+      user_id: number;
+      visited: boolean;
+      rating: string;
+      city: string;
+      notes: string;
+    }>(
+      "SELECT user_id, visited, rating::text, city, notes FROM restaurants WHERE id = $1",
+      [restaurantId],
+    );
+    expect(storedRestaurant.rows[0]).toEqual({
+      user_id: ownerId,
+      visited: true,
+      rating: "4.6",
+      city: "Portland",
+      notes: "Preserve this note when status changes.",
+    });
+    const starCount = await pool.query(
+      "SELECT count(*)::int AS count FROM stars WHERE user_id = $1 AND restaurant_id = $2",
+      [ownerId, restaurantId],
+    );
+    expect(starCount.rows[0].count).toBe(1);
+    const dashboardAfterVisit = await owner.get("/api/dashboard").expect(200);
+    expect(dashboardAfterVisit.body).toMatchObject({
+      totalSaved: 1,
+      visitedCount: 1,
+      averageRating: 4.6,
+    });
+
+    await owner
+      .post("/api/auth/logout")
+      .set("x-csrf-token", ownerCsrf)
+      .send({})
+      .expect(200);
+    const reauthenticatedOwner = request.agent(app);
+    const loginCsrf = await getCsrf(reauthenticatedOwner);
+    await reauthenticatedOwner
+      .post("/api/auth/login")
+      .set("x-csrf-token", loginCsrf)
+      .send({ email: ownerEmail, password: testPassword })
+      .expect(200);
+    const reauthenticatedCsrf = await getCsrf(reauthenticatedOwner);
+    const persistedDetail = await reauthenticatedOwner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(persistedDetail.body.restaurant).toMatchObject({
+      visited: true,
+      rating: 4.6,
+      notes: "Preserve this note when status changes.",
+      isStarred: true,
+    });
+    expect(
+      (await reauthenticatedOwner.get("/api/dashboard").expect(200)).body
+        .visitedCount,
+    ).toBe(1);
+
+    await reauthenticatedOwner
+      .put(visitedPath)
+      .set("x-csrf-token", reauthenticatedCsrf)
+      .send({ visited: false })
+      .expect(200, { visited: false });
+    const clearedStatusDetail = await reauthenticatedOwner
+      .get(`/api/restaurants/${restaurantId}`)
+      .expect(200);
+    expect(clearedStatusDetail.body.restaurant).toMatchObject({
+      visited: false,
+      rating: 4.6,
+      notes: "Preserve this note when status changes.",
+      isStarred: true,
+    });
+    expect(
+      (await reauthenticatedOwner.get("/api/dashboard").expect(200)).body
+        .visitedCount,
+    ).toBe(0);
   });
 });
