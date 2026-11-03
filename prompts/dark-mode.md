@@ -26,4 +26,9 @@ PR27merged25a98959fc9293ae72054db1299f4b7fef2adebd, deployed/liveverifiedall5rea
 - `npm run build` — passed. Vite emitted a bundle-size advisory: minified JavaScript is 719.13 kB (209.98 kB gzip).
 - Restarted the existing `Start application` workflow. Vite became ready on port 5000 and Express reported the API on port 3000.
 - `git diff --check` — passed. No browser automation was run, as requested.
-- Commit, push, and pull-request link will be recorded before handoff.
+
+## Handoff
+
+- Implementation commit `cb7a733950d2419b2a23181226e4edd399999457` was created on `feature/dark-mode` and pushed successfully to `origin/feature/dark-mode`.
+- GitHub pull request creation link: https://github.com/taofeeqilufoye/bitebuddy/pull/new/feature/dark-mode
+- No merge, publish, `main` commit/push, or unrelated feature work was performed.
