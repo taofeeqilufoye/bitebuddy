@@ -16,6 +16,25 @@
   --muted: #776b62;
   --line: #e7d8c9;
   --sage: #718574;
+  --theme-page: #fff8f0;
+  --theme-surface: #fffaf4;
+  --theme-surface-raised: #fffdf9;
+  --theme-input: #fffcf7;
+  --theme-text: #262626;
+  --theme-text-muted: #776b62;
+  --theme-text-subtle: #958578;
+  --theme-border: #e4d7ca;
+  --theme-error-bg: #fff0eb;
+  --theme-error-border: #e6b9ae;
+  --theme-error-text: #8e2c20;
+  --theme-focus: rgba(194, 65, 45, 0.4);
+  --theme-chart-grid: #eaded2;
+  --theme-chart-axis: #776b62;
+  --theme-chart-label: #493f38;
+  --theme-chart-cursor: #f5e9dc;
+  --theme-chart-bar: #c2412d;
+  --theme-tooltip-bg: #fffaf4;
+  --theme-tooltip-border: #e4d7ca;
   --serif: "Fraunces", Georgia, serif;
   --mono: "DM Mono", monospace;
 }
@@ -85,6 +104,54 @@ input:focus-visible {
   font-size: 23px;
   font-weight: 600;
   letter-spacing: -0.7px;
+}
+
+.auth-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--theme-surface);
+  color: var(--charcoal);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.theme-toggle-state {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.theme-toggle[aria-pressed="true"] {
+  border-color: var(--terracotta);
+  background: var(--cream-deep);
+}
+
+.theme-toggle:hover {
+  border-color: var(--terracotta);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--theme-focus);
+  outline-offset: 3px;
 }
 
 .brand-mark {
@@ -1940,6 +2007,27 @@ input:focus-visible {
 }
 
 @media (max-width: 520px) {
+  .theme-toggle {
+    min-height: 36px;
+    gap: 6px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .auth-topbar {
+    gap: 8px;
+  }
+
+  .auth-topbar .brand {
+    font-size: 21px;
+  }
+
+  .journal-nav .theme-toggle {
+    min-height: 34px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
   .journal-header {
     min-height: 69px;
     gap: 10px;
@@ -2316,4 +2404,367 @@ input:focus-visible {
   .dashboard-chart-equivalent {
     grid-template-columns: 1fr;
   }
+}
+
+/* Dark theme */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: var(--theme-text);
+  background: var(--theme-page);
+  --cream: #191715;
+  --cream-deep: #302a25;
+  --terracotta: #e5846a;
+  --terracotta-dark: #f2a08a;
+  --charcoal: #f5eee7;
+  --muted: #c2b6aa;
+  --line: #50463e;
+  --sage: #a3b79d;
+  --theme-page: #191715;
+  --theme-surface: #24211e;
+  --theme-surface-raised: #302b26;
+  --theme-input: #1e1b19;
+  --theme-text: #f5eee7;
+  --theme-text-muted: #c5b9ad;
+  --theme-text-subtle: #ac9f93;
+  --theme-border: #554a41;
+  --theme-error-bg: #482722;
+  --theme-error-border: #995346;
+  --theme-error-text: #ffd1c7;
+  --theme-focus: rgba(239, 145, 120, 0.58);
+  --theme-chart-grid: #5e5147;
+  --theme-chart-axis: #c8bbae;
+  --theme-chart-label: #f2eae3;
+  --theme-chart-cursor: rgba(255, 255, 255, 0.08);
+  --theme-chart-bar: #e5846a;
+  --theme-tooltip-bg: #302b26;
+  --theme-tooltip-border: #68584c;
+}
+
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .journal-shell {
+  background: var(--theme-page);
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .app-shell {
+  background:
+    radial-gradient(ellipse at 3% 90%, rgba(229, 132, 106, 0.06), transparent 24rem),
+    var(--theme-page);
+}
+
+:root[data-theme="dark"] .journal-shell {
+  background:
+    radial-gradient(ellipse at 98% 7%, rgba(229, 132, 106, 0.07), transparent 27rem),
+    var(--theme-page);
+}
+
+:root[data-theme="dark"] .journal-shell::before {
+  opacity: 0.035;
+}
+
+:root[data-theme="dark"] .story-side {
+  background: #302923;
+}
+
+:root[data-theme="dark"] .story-kicker,
+:root[data-theme="dark"] .story-copy h2,
+:root[data-theme="dark"] .story-copy p,
+:root[data-theme="dark"] .story-foot,
+:root[data-theme="dark"] .form-footer,
+:root[data-theme="dark"] .field label {
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .story-copy p,
+:root[data-theme="dark"] .story-kicker,
+:root[data-theme="dark"] .story-foot,
+:root[data-theme="dark"] .form-footer {
+  color: var(--theme-text-muted);
+}
+
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .journal-field input,
+:root[data-theme="dark"] .journal-field select,
+:root[data-theme="dark"] .journal-field textarea,
+:root[data-theme="dark"] .collection-control input,
+:root[data-theme="dark"] .collection-control select {
+  border-color: var(--theme-border);
+  background: var(--theme-input);
+  color: var(--theme-text);
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .field input:focus,
+:root[data-theme="dark"] .journal-field input:focus,
+:root[data-theme="dark"] .journal-field select:focus,
+:root[data-theme="dark"] .journal-field textarea:focus,
+:root[data-theme="dark"] .collection-control input:focus-visible,
+:root[data-theme="dark"] .collection-control select:focus-visible {
+  border-color: var(--terracotta);
+  background: var(--theme-input);
+}
+
+:root[data-theme="dark"] .field input::placeholder,
+:root[data-theme="dark"] .journal-field input::placeholder,
+:root[data-theme="dark"] .journal-field textarea::placeholder,
+:root[data-theme="dark"] .collection-control input::placeholder {
+  color: var(--theme-text-subtle);
+}
+
+:root[data-theme="dark"] .collection-controls,
+:root[data-theme="dark"] .restaurant-form,
+:root[data-theme="dark"] .detail-paper,
+:root[data-theme="dark"] .dashboard-metric,
+:root[data-theme="dark"] .dashboard-chart-section,
+:root[data-theme="dark"] .random-pick-result {
+  border-color: var(--theme-border);
+  background: var(--theme-surface);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .detail-paper {
+  background: var(--theme-surface);
+}
+
+:root[data-theme="dark"] .empty-illustration {
+  border-color: var(--theme-border);
+  background: var(--theme-surface-raised);
+}
+
+:root[data-theme="dark"] .restaurant-card {
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .restaurant-card:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+:root[data-theme="dark"] .journal-header,
+:root[data-theme="dark"] .journal-footer {
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .journal-nav > a:not(.nav-add),
+:root[data-theme="dark"] .journal-brand,
+:root[data-theme="dark"] .brand {
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .journal-nav > a:not(.nav-add):hover,
+:root[data-theme="dark"] .journal-nav > a.nav-current,
+:root[data-theme="dark"] .journal-nav .nav-add,
+:root[data-theme="dark"] .text-button,
+:root[data-theme="dark"] .clear-filters-button,
+:root[data-theme="dark"] .back-link,
+:root[data-theme="dark"] .cancel-link,
+:root[data-theme="dark"] .random-pick-result a,
+:root[data-theme="dark"] .dashboard-chart-equivalent strong,
+:root[data-theme="dark"] .journal-eyebrow,
+:root[data-theme="dark"] .eyebrow,
+:root[data-theme="dark"] .card-cuisine,
+:root[data-theme="dark"] .detail-cuisine {
+  color: var(--terracotta-dark);
+}
+
+:root[data-theme="dark"] .journal-nav .nav-add {
+  border-color: var(--theme-border);
+  background: transparent;
+}
+
+:root[data-theme="dark"] .journal-nav .nav-add:hover,
+:root[data-theme="dark"] .journal-nav .logout-button:hover,
+:root[data-theme="dark"] .pick-for-me-button:hover:not(:disabled),
+:root[data-theme="dark"] .journal-secondary-button:hover,
+:root[data-theme="dark"] .inline-retry:hover,
+:root[data-theme="dark"] .detail-edit-button:hover,
+:root[data-theme="dark"] .detail-delete-button:hover:not(:disabled),
+:root[data-theme="dark"] .detail-star-button:hover:not(:disabled),
+:root[data-theme="dark"] .detail-visited-button:hover:not(:disabled),
+:root[data-theme="dark"] .star-toggle:hover:not(:disabled),
+:root[data-theme="dark"] .visited-toggle:hover:not(:disabled),
+:root[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .journal-nav .logout-button,
+:root[data-theme="dark"] .pick-for-me-button,
+:root[data-theme="dark"] .journal-secondary-button,
+:root[data-theme="dark"] .inline-retry,
+:root[data-theme="dark"] .detail-edit-button,
+:root[data-theme="dark"] .detail-star-button,
+:root[data-theme="dark"] .detail-visited-button,
+:root[data-theme="dark"] .star-toggle,
+:root[data-theme="dark"] .visited-toggle,
+:root[data-theme="dark"] .theme-toggle {
+  border-color: var(--theme-border);
+  background: var(--theme-surface-raised);
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .theme-toggle[aria-pressed="true"] {
+  border-color: var(--terracotta);
+  background: #41312b;
+}
+
+:root[data-theme="dark"] .theme-toggle-state {
+  color: var(--theme-text-muted);
+}
+
+:root[data-theme="dark"] .primary-button,
+:root[data-theme="dark"] .add-place-button,
+:root[data-theme="dark"] .journal-submit,
+:root[data-theme="dark"] .confirm-delete-button {
+  border-color: #a83a28;
+  background: #a83a28;
+  color: #fff8f0;
+}
+
+:root[data-theme="dark"] .primary-button:hover:not(:disabled),
+:root[data-theme="dark"] .add-place-button:hover,
+:root[data-theme="dark"] .journal-submit:hover:not(:disabled),
+:root[data-theme="dark"] .confirm-delete-button:hover:not(:disabled) {
+  border-color: #8b2f22;
+  background: #8b2f22;
+  color: #fff8f0;
+}
+
+:root[data-theme="dark"] .star-toggle[aria-pressed="true"],
+:root[data-theme="dark"] .detail-star-button[aria-pressed="true"] {
+  border-color: #9f392c;
+  background: #9f392c;
+  color: #fff8f0;
+}
+
+:root[data-theme="dark"] .visited-toggle[aria-pressed="true"],
+:root[data-theme="dark"] .detail-visited-button[aria-pressed="true"] {
+  border-color: #526b57;
+  background: #526b57;
+  color: #fff8f0;
+}
+
+:root[data-theme="dark"] .star-toggle[aria-pressed="true"]:hover:not(:disabled),
+:root[data-theme="dark"] .detail-star-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: #7f3025;
+}
+
+:root[data-theme="dark"] .visited-toggle[aria-pressed="true"]:hover:not(:disabled),
+:root[data-theme="dark"] .detail-visited-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: #3f5544;
+}
+
+:root[data-theme="dark"] .form-error,
+:root[data-theme="dark"] .inline-error,
+:root[data-theme="dark"] .delete-confirmation,
+:root[data-theme="dark"] .journal-logout-error {
+  border-color: var(--theme-error-border);
+  background: var(--theme-error-bg);
+  color: var(--theme-error-text);
+}
+
+:root[data-theme="dark"] .field-error,
+:root[data-theme="dark"] .journal-field-error,
+:root[data-theme="dark"] .star-action-error,
+:root[data-theme="dark"] .detail-delete-button,
+:root[data-theme="dark"] .delete-confirmation h2,
+:root[data-theme="dark"] .delete-confirmation > p {
+  color: var(--theme-error-text);
+}
+
+:root[data-theme="dark"] .detail-delete-button {
+  border-color: var(--theme-error-border);
+  background: #34221f;
+}
+
+:root[data-theme="dark"] .delete-confirmation .confirm-delete-button {
+  color: #fff8f0;
+}
+
+:root[data-theme="dark"] .form-wrap h1,
+:root[data-theme="dark"] .journal-content h1,
+:root[data-theme="dark"] .journal-state h1,
+:root[data-theme="dark"] .journal-state h2,
+:root[data-theme="dark"] .card-name,
+:root[data-theme="dark"] .fact-value,
+:root[data-theme="dark"] .detail-content > h1,
+:root[data-theme="dark"] .dashboard-metric > strong {
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .intro,
+:root[data-theme="dark"] .switch-prompt,
+:root[data-theme="dark"] .journal-brand-note,
+:root[data-theme="dark"] .journal-lede,
+:root[data-theme="dark"] .pick-empty-hint,
+:root[data-theme="dark"] .random-pick-result,
+:root[data-theme="dark"] .random-pick-result > span,
+:root[data-theme="dark"] .collection-control > span,
+:root[data-theme="dark"] .collection-summary,
+:root[data-theme="dark"] .card-index,
+:root[data-theme="dark"] .card-location,
+:root[data-theme="dark"] .card-note,
+:root[data-theme="dark"] .card-aside,
+:root[data-theme="dark"] .rating-value,
+:root[data-theme="dark"] .rating-out-of,
+:root[data-theme="dark"] .rating-unset,
+:root[data-theme="dark"] .card-arrow,
+:root[data-theme="dark"] .journal-state > p:not(.journal-eyebrow),
+:root[data-theme="dark"] .journal-footer,
+:root[data-theme="dark"] .journal-field label,
+:root[data-theme="dark"] .journal-field label span,
+:root[data-theme="dark"] .field-hint,
+:root[data-theme="dark"] .detail-date,
+:root[data-theme="dark"] .detail-location,
+:root[data-theme="dark"] .fact-label,
+:root[data-theme="dark"] .detail-notes p,
+:root[data-theme="dark"] .detail-signoff,
+:root[data-theme="dark"] .dashboard-metric-label,
+:root[data-theme="dark"] .dashboard-metric-detail,
+:root[data-theme="dark"] .dashboard-out-of,
+:root[data-theme="dark"] .dashboard-chart-note,
+:root[data-theme="dark"] .dashboard-chart-equivalent li,
+:root[data-theme="dark"] .dashboard-chart-empty,
+:root[data-theme="dark"] .dashboard-loading {
+  color: var(--theme-text-muted);
+}
+
+:root[data-theme="dark"] .dashboard-metric > strong.dashboard-no-rating {
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .detail-date,
+:root[data-theme="dark"] .fact-label,
+:root[data-theme="dark"] .rating-out-of,
+:root[data-theme="dark"] .rating-unset,
+:root[data-theme="dark"] .card-index,
+:root[data-theme="dark"] .card-arrow,
+:root[data-theme="dark"] .dashboard-metric-detail,
+:root[data-theme="dark"] .detail-signoff {
+  color: var(--theme-text-subtle);
+}
+
+:root[data-theme="dark"] .select-skeleton,
+:root[data-theme="dark"] .detail-skeleton {
+  border-color: var(--theme-border);
+  background: linear-gradient(
+    90deg,
+    #24211e 25%,
+    #312c27 42%,
+    #24211e 62%
+  );
+  background-size: 300% 100%;
+}
+
+:root[data-theme="dark"] .restaurant-skeleton > span,
+:root[data-theme="dark"] .restaurant-skeleton i,
+:root[data-theme="dark"] .restaurant-skeleton b {
+  background: var(--theme-surface-raised);
+}
+
+:root[data-theme="dark"] button:focus-visible,
+:root[data-theme="dark"] input:focus-visible,
+:root[data-theme="dark"] select:focus-visible,
+:root[data-theme="dark"] textarea:focus-visible,
+:root[data-theme="dark"] .dashboard-chart:focus-visible {
+  outline-color: var(--theme-focus);
 }

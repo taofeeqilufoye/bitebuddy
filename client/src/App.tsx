@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import RestaurantJournal from "./RestaurantJournal";
+import ThemeToggle from "./ThemeToggle";
 import "./index.css";
+import {
+  readThemePreference,
+  resolveThemePreference,
+  saveThemePreference,
+} from "./themePreference";
+import type { Theme, ThemePreference, ThemeStorage } from "./themePreference";
 import {
   ACCOUNT_LIMITS,
   loginSchema,
@@ -48,16 +55,38 @@ function Brand() {
   );
 }
 
+function getThemeStorage(): ThemeStorage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function systemPrefersDark(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch {
+    return false;
+  }
+}
+
 function AuthPage({
   mode,
   onModeChange,
   csrfToken,
   onAuthenticated,
+  theme,
+  onToggleTheme,
 }: {
   mode: AuthMode;
   onModeChange: (mode: AuthMode) => void;
   csrfToken: string;
   onAuthenticated: (user: User, token: string) => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -172,7 +201,10 @@ function AuthPage({
   return (
     <main className="auth-layout">
       <section className="form-side" aria-labelledby="auth-heading">
-        <Brand />
+        <div className="auth-topbar">
+          <Brand />
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
         <div className="form-wrap">
           <p className="eyebrow">{isSignup ? "A place of your own" : "Welcome back"}</p>
           <h1 id="auth-heading">{isSignup ? "Start your own story." : "Good to see you again."}</h1>
@@ -311,6 +343,39 @@ function App() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
+    readThemePreference(getThemeStorage(), systemPrefersDark()),
+  );
+  const theme = themePreference.theme;
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    if (themePreference.explicit) return;
+    if (typeof window === "undefined") return;
+
+    let mediaQuery: MediaQueryList;
+    try {
+      mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    } catch {
+      return;
+    }
+
+    const followDevicePreference = (event: MediaQueryListEvent) => {
+      setThemePreference(resolveThemePreference(null, event.matches));
+    };
+    mediaQuery.addEventListener("change", followDevicePreference);
+    return () =>
+      mediaQuery.removeEventListener("change", followDevicePreference);
+  }, [themePreference.explicit]);
+
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setThemePreference({ theme: nextTheme, explicit: true });
+    saveThemePreference(getThemeStorage(), nextTheme);
+  }
 
   useEffect(() => {
     let active = true;
@@ -441,6 +506,8 @@ function App() {
         onLogout={handleLogout}
         loggingOut={loggingOut}
         logoutError={logoutError}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -451,6 +518,8 @@ function App() {
         mode={mode}
         onModeChange={setMode}
         csrfToken={csrfToken}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onAuthenticated={(nextUser, nextToken) => {
           setCsrfToken(nextToken);
           setUser(nextUser);
