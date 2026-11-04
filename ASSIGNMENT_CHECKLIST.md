@@ -8,7 +8,7 @@
 - [x] Add the shared `Other` cuisine fallback without changing existing restaurant data or adding a custom-category editor.
 - [x] Required data-isolation and dashboard-average tests with recorded RED/GREEN evidence.
 - [x] Final README, schema, Plan vs. Reality, class guide, assignment checklist, and evidence indexes.
-- [ ] Final documentation PR merged. This checklist does not claim the current documentation branch is merged.
+- [x] Final documentation and original screenshots are provided in [PR #34](https://github.com/taofeeqilufoye/bitebuddy/pull/34); its GitHub status records the merge checkpoint.
 
 ## Merged PR history
 
@@ -44,3 +44,4 @@ The initial README-only bootstrap was the approved exception to the PR workflow;
 - [Usability session evidence](evidence/usability/README.md)
 - [Primary dashboard evidence](evidence/dashboard/README.md)
 - [Class guide](CLASS_GUIDE.md)
+
