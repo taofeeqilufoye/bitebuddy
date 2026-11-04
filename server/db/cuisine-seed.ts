@@ -16,6 +16,7 @@ export const CUISINE_LABELS = [
   "Korean",
   "Mexican",
   "Nigerian",
+  "Other",
   "Thai",
   "Vietnamese",
 ] as const;
