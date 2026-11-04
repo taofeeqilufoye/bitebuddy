@@ -20,9 +20,18 @@
 - The targeted green preflight ran as `npm test -- tests/required-dashboard.test.ts`: **passed**, 1 file / 1 test, started at 06:43:13, duration 4.27 seconds.
 - The test used the real Express signup/session/dashboard routes and three unique disposable accounts. The development database guard passed; the `afterAll` cleanup completed without error. No production database was accessed.
 
-## Current red-capture handoff
+## Follow-up user prompt (verbatim)
 
-- After the green preflight, only the dashboard average SQL expression in `server/app.ts` was changed from `AVG(rating)` to `SUM(rating) / COUNT(*)`. This intentionally includes unrated restaurants in the denominator; A's 5, 3, and null entries should produce 2.7 instead of 4.0.
-- `tests/required-dashboard.test.ts` remains unchanged.
-- Run `npm test -- tests/required-dashboard.test.ts` in the Replit Shell to capture the genuine RED result.
-- No test was run after the intentional defect. No screenshot or browser evidence is claimed. The full suite is deferred until restoration.
+> Actual RED captured from Replit Shell: npm test -- tests/required-dashboard.test.ts; start06:43:54 UTC duration2.48s,1file1test failed. Assertion tests/required-dashboard.test.ts:150:29 shows expected averageRating4,received2.7. Original screenshot saved externally; I will upload before PR merge. Restore ONLY the dashboard average expression to exact origin/main byte-for-byte now, leaving test unchanged. Verify server/app.ts/.replit exact origin/main. Record actual RED and this prompt in log. STOP ready for my GREEN Shell run; no publish, commit/push, or full suite yet. Preserve checkpoint history.
+
+## Actual RED result
+
+- The user reported an actual Replit Shell run of `npm test -- tests/required-dashboard.test.ts`, starting at 06:43:54 UTC and lasting 2.48 seconds.
+- It failed 1 file / 1 test at `tests/required-dashboard.test.ts:150:29`: expected `averageRating` 4, received 2.7.
+- The screenshot was saved externally by the person reporting this run and will be uploaded before PR merge. It is not present in this workspace; no screenshot has been created or claimed by Replit Agent.
+
+## Restored state and pending GREEN
+
+- Restored only the dashboard average expression to the `origin/main` implementation. `tests/required-dashboard.test.ts` remains unchanged.
+- No test was run after restoration. The user will run `npm test -- tests/required-dashboard.test.ts` in the Replit Shell and capture GREEN.
+- No full suite, commit, push, merge, or publish was performed in this phase.
