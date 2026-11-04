@@ -351,7 +351,7 @@ app.get("/api/dashboard", requireAuthenticated, async (req, res) => {
     .select({
       totalSaved: sql<number>`count(*)::int`,
       visitedCount: sql<number>`count(*) filter (where ${restaurants.visited})::int`,
-      averageRating: sql<number | null>`round(avg(${restaurants.rating})::numeric, 1)::float8`,
+      averageRating: sql<number | null>`round((sum(${restaurants.rating}) / count(*))::numeric, 1)::float8`,
     })
     .from(restaurants)
     .where(eq(restaurants.userId, userId));
