@@ -35,6 +35,10 @@ Removing the owner filter from `GET /api/restaurants` makes A's restaurant appea
 
 > RED evidence captured by supervising assistant from actual Replit Shell: npm test -- tests/required-isolation.test.ts failed1file/1test at134:7, expectedfalse/receivedtrue because B list contained A fixture. Initialredrunandcleanerrepeatsallfailedsameassertion; latest06:24:42 UTCduration4.17s, screenshotisolation-red.jpg capturedfullUIwithoutediting. Restore ONLY the removed list-query owner predicate now; verify server/app.ts matches origin/main exactly (and .replit unchanged). Do not change the test to pass. Then STOP for my GREEN Shell run/screenshot; do not commit/push/merge/publishyet. Add accurate RED observation/commands to prompts/data-isolation.md, prepare test-evidence/README.md with plainEnglish/what-breaks-it and relative image links isolation-red.jpg/isolation-green.jpg (actual images will be uploaded by me). Keep current feature/data-isolation branch, no need rename; report restorationready.
 
+## Final user prompt (verbatim)
+
+> GREEN actualShellcaptured: npm test -- tests/required-isolation.test.ts passed1file/1test at06:27:49UTC duration2.62s; screenshotisolation-green.jpg savedfullUIwithoutediting. Finalize ONLY isolation test branch now. Record actualGREEN and earlierRED in prompts/data-isolation.md/test-evidence/README.md. Run full npm test once to verify new test coexists with existing suite; no needless rebuild if app/config match main. IMPORTANT ReplitautoCheckpointHEAD52fe... may contain temporary defect: stage and commit RESTORED server/app.ts/.replit as needed along with scoped test/log/evidenceREADME; before any push verify final TIP versions of server/app.ts and .replit match origin/main byte-for-byte, cumulative branch diff has only intended test/docs (no runtime/config defect). Preserve checkpoint/archive refs; do not reset/forcepush/main. Push ONLY feature/data-isolation once restoration is committed and checks pass, report exactSHA/fullresults/PRlink. Actual2jpgs will be uploaded by supervising assistant viaGitHub to test-evidence/ before merge; do not invent images or claim present yet. Stopafterpush,no merge/publish/otherfeature.
+
 ## Supervising assistant RED evidence
 
 - **Attribution:** supervising assistant, from an actual Replit Shell run; not a human-run test.
@@ -46,6 +50,9 @@ Removing the owner filter from `GET /api/restaurants` makes A's restaurant appea
 ## Restored state and pending GREEN evidence
 
 - Restored only the removed owner predicate in the `GET /api/restaurants` query. The test was not changed.
-- No test has been run after restoration. The user will run `npm test -- tests/required-isolation.test.ts` in the Replit Shell and capture the GREEN screenshot.
-- The RED and pending GREEN screenshot links are documented in `test-evidence/README.md`; the user will upload the images there.
-- No merge or publish was performed. No Git commit or push command was run by the supervising assistant.
+- **GREEN result reported by the supervising assistant:** `npm test -- tests/required-isolation.test.ts` passed, 1 file / 1 test, at 06:27:49 UTC; duration 2.62 seconds.
+- The supervising assistant reported saving `isolation-green.jpg` as a full-UI screenshot without editing. It will be uploaded to `test-evidence/` via GitHub; it is not present in the workspace yet.
+- The RED and GREEN image links are documented in `test-evidence/README.md`. No screenshot files have been invented or added.
+- The supervising assistant's full-suite run after recording the reported GREEN result: `npm test` **passed**, 8 files / 31 tests, started at 06:29:23, duration 20.84 seconds.
+- No build was run because `server/app.ts` and `.replit` match `origin/main` byte-for-byte; no runtime or configuration change remains in the cumulative branch diff.
+- No merge or publish was performed.
