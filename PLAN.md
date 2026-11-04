@@ -57,7 +57,22 @@ The highest risk is getting private access checks and session cookies correct ac
 Final verification includes five genuine restaurant entries supplied by the owner, a dashboard screenshot on that account, and a real 10-minute unaided session by someone outside the class. Record three observed struggles, fix one through its own issue/PR, and explain the deferred fixes. Complete README.md with live URL and run instructions, schema.md with the implemented relationships and comparison to this design, and two evidence-linked reflections of 400–600 words each. Do not invent personal experiences or observations.
 
 ## 8. Plan vs. Reality
-To be appended after implementation; sections 1–7 above remain the original plan.
+Final status after the issue 29 usability fix; sections 1–7 above remain the
+original plan.
 
 | Planned feature | Shipped / Changed / Cut | Status (Done/Backlogged) | Learning | What changed and why (one line) |
 | --- | --- | --- | --- | --- |
+| Accounts and private journals | Shipped | Done | Server checks must accompany browser views | Email/password accounts, stored hashes, sessions, owner-scoped routes |
+| Related data and rating format | Changed | Done | Real examples exposed an integer-only assumption | Same four domain tables plus session; ratings accept tenths to preserve actual data |
+| Create/read and edit/confirmed delete | Shipped | Done | Cancellation and direct foreign IDs need verification | Private journal forms, details, edits, and named confirmation |
+| Validation | Shipped | Done | Client and server must agree | Shared rules reject blanks, invalid categories, range and precision errors |
+| Favorites | Shipped | Done | One junction table can serve every account | Unique owner/restaurant stars and Starred view |
+| Search, filter, sort | Shipped | Done | Combining controls requires clear empty states | Name/city search, cuisine/status filters, newest/name/rating ordering |
+| Dashboard | Shipped | Done | Null ratings differ from zero | Three owner-scoped statistics and cuisine chart with text equivalent |
+| Random picker | Shipped | Done | Random choices must respect visible candidates | Chooses only from current private filtered view |
+| Visited toggle | Shipped | Done | Status and rating are independent values | Persisted toggle, status filter, dashboard count |
+| Dark mode | Shipped | Done | Preferences should survive reload | Device default and browser-local explicit preference |
+| Required test storage | Changed | Done | Existing development storage avoided another service | Guarded Replit development DB and unique disposable fixture cleanup replaced separately provisioned test DB |
+| Isolation and dashboard tests | Shipped | Done | A passing test needs a demonstrated meaningful failure | Separate PRs #30/#32, actual RED/GREEN screenshots, restored full suite |
+| Usability category fallback | Changed | Done | A fixed list cannot describe every restaurant | Issue #29 adds Other using existing categories; no custom-category editor |
+| Password eye, clearer controls and helper | Cut from current scope | Backlogged | Working behavior can still be unclear | Actual feedback recorded; category fallback prioritized for minimal scope |
