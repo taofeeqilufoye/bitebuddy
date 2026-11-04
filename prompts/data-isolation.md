@@ -29,8 +29,23 @@ Removing the owner filter from `GET /api/restaurants` makes A's restaurant appea
 - The test used two unique disposable accounts and the actual authenticated Express routes. Its `afterAll` cleanup completed without error; no production database was accessed.
 - The working-tree database connection and Replit development database both reported `heliumdb`, with `pg_is_in_recovery() = false`.
 - The exact command for the requested red capture is `npm test -- tests/required-isolation.test.ts`.
-- The supervising assistant has not run that command after the intentional defect and has not claimed or captured a red screenshot.
+- The supervising assistant later reported the actual RED run from the Replit Shell; details are recorded below.
 
-## Current requested handoff
+## Follow-up user prompt (verbatim)
 
-After the green run, only the owner predicate in the `GET /api/restaurants` collection query in `server/app.ts` is being removed temporarily. The database remains the Replit development database; `main` and live production remain unchanged. The test and evidence log are uncommitted and unpushed. The supervising assistant will stop after applying the defect and wait for the user's Shell run and screenshot.
+> RED evidence captured by supervising assistant from actual Replit Shell: npm test -- tests/required-isolation.test.ts failed1file/1test at134:7, expectedfalse/receivedtrue because B list contained A fixture. Initialredrunandcleanerrepeatsallfailedsameassertion; latest06:24:42 UTCduration4.17s, screenshotisolation-red.jpg capturedfullUIwithoutediting. Restore ONLY the removed list-query owner predicate now; verify server/app.ts matches origin/main exactly (and .replit unchanged). Do not change the test to pass. Then STOP for my GREEN Shell run/screenshot; do not commit/push/merge/publishyet. Add accurate RED observation/commands to prompts/data-isolation.md, prepare test-evidence/README.md with plainEnglish/what-breaks-it and relative image links isolation-red.jpg/isolation-green.jpg (actual images will be uploaded by me). Keep current feature/data-isolation branch, no need rename; report restorationready.
+
+## Supervising assistant RED evidence
+
+- **Attribution:** supervising assistant, from an actual Replit Shell run; not a human-run test.
+- **Command:** `npm test -- tests/required-isolation.test.ts`.
+- **Result reported:** 1 file / 1 test failed at `tests/required-isolation.test.ts:134:7`; expected `false`, received `true`, because B's collection included A's fixture.
+- The initial RED run and subsequent clean reruns all failed at the same assertion. The latest reported run was at 06:24:42 UTC and took 4.17 seconds.
+- The supervising assistant reported capturing `isolation-red.jpg` as a full-UI screenshot without editing. The image itself is to be uploaded by the user; it is not claimed to be present in this workspace yet.
+
+## Restored state and pending GREEN evidence
+
+- Restored only the removed owner predicate in the `GET /api/restaurants` query. The test was not changed.
+- No test has been run after restoration. The user will run `npm test -- tests/required-isolation.test.ts` in the Replit Shell and capture the GREEN screenshot.
+- The RED and pending GREEN screenshot links are documented in `test-evidence/README.md`; the user will upload the images there.
+- No merge or publish was performed. No Git commit or push command was run by the supervising assistant.
