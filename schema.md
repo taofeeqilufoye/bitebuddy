@@ -134,11 +134,12 @@ is `drizzle/meta/_journal.json`; it has entries for migrations `0000` through
   `restaurants` table, and shared `stars` table are present. `users.email` is
   normalized and unique; restaurant and star ownership is enforced in both
   application queries and database keys.
-- Plan section 3 specifies an integer rating from 1 to 5. The user requested
-  tenths to preserve actual restaurant ratings, so the implemented column is
+- Plan section 3 specifies an integer rating from 1 to 5. The owner supplied
+  actual decimal ratings; the coordinating assistant translated the mismatch
+  into a tenths requirement, and Replit Agent implemented it. The column is
   nullable PostgreSQL `numeric` with a database check allowing `NULL` or
-  1.0–5.0 in 0.1 increments. Invalid precision is rejected rather than
-  rounded. The original Plan text remains unchanged.
+  1.0–5.0 in 0.1 increments. Unsupported precision is rejected. The original
+  Plan text remains unchanged.
 - The Plan allows a session support table when required by the session
   library. The actual `public.session` table is used by `connect-pg-simple`;
   it is independent of the domain-table foreign keys.

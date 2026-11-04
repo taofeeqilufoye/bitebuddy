@@ -30,14 +30,30 @@ Private credentials, billing, and private upload/merge coordination details are 
 - Read-only Development database inspection confirmed `current_database() = heliumdb`, not a read replica; it listed 17 cuisine labels including `Other` and four Drizzle migration rows. No production database was queried.
 - The Development database schema inspection included application and session columns, constraints, keys, indexes, and `drizzle.__drizzle_migrations`.
 - Before editing, `PLAN.md` matched `git show 9de788:PLAN.md` byte-for-byte (10,002 bytes). Only section 8 is being completed; sections 1–7 remain identical.
-- The committed data-model prompt contains the exact user request for 1.0–5.0 tenths. It does not contain a verbatim assistant reply proposing the SQL type or rounding behavior; the reflection avoids quoting or attributing one.
+- The owner supplied the five actual decimal ratings. The coordinating assistant identified the integer-plan mismatch and converted it into the technical instruction quoted in the reflection; Replit Agent implemented the requested rule. The reflection also quotes the agent-authored Plan-deviation response from `prompts/data-model.md`. The owner accepted the implementation through the supplied data and task delegation, not through unaided SQL design.
 - No application, configuration, or test source changes were made. No tests were rerun, and no production data was accessed.
 
 ## Documentation validation results
 
-- Both reflections are within the requested 400–600-word range, including evidence: Plan vs. Reality 538 words; stranger test 534 words.
+- Both reflection bodies are within the requested 400–600-word range, excluding titles and evidence: Plan vs. Reality 531 words; stranger test 487 words.
 - Relative links and heading anchors among the documentation files resolve. The seven requested screenshot filenames are linked, but their image files are not present in this worktree.
 - README command names exist in `package.json`; the documented production build/start and 5000-to-80 port mapping match `.replit`.
 - All 51 tracked non-Markdown files are byte-identical to `origin/main`, `.replit` is byte-identical to `origin/main`, and there are no untracked non-document files.
 - `PLAN.md` sections 1–7 match the original plan at `9de788` byte-for-byte through the section 8 boundary (9,743 bytes); only section 8 was completed.
 - No application tests, builds, production queries, or publishing actions were run.
+
+## Review correction and result
+
+The review correction stated:
+
+> Data-model PR is #12 (740eefe3ef18071aa730522c98d3c300dd362897), NOT #7 (hosting). Human supplied five actual decimal ratings; coordinating assistant noticed mismatch and sent decimal-change prompt; do NOT claim human personally authored that technical prompt or identified SQL choice.
+>
+> Quote exact technical prompt as coordinating-assistant prompt. Quote actual agent-authored response FROM prompts/data-model.md Plan deviation section: “The original plan sections were left untouched; PostgreSQL enforces the requested range and one-decimal increments.” DO NOT invent the earlier numeric/rounding quote.
+>
+> State human accepted implementation through supplied data/task delegation, did not choose SQL unaided. Keep single biggest gap, cost and rewritten fresh-agent requirement, 400–600 BODY words excluding evidence. Correct evidence link Data-model PR12. Append correction prompt/result to required log, no new feature/tests. No source/config changes.
+
+Coordinating-assistant technical instruction, quoted exactly: “Rating CHANGE requested from actual user entries: accept one decimal 1.0–5.0, rather than the original integer plan.”
+
+Agent-authored response, quoted exactly from the Plan-deviation section of `prompts/data-model.md`: “The original plan sections were left untouched; PostgreSQL enforces the requested range and one-decimal increments.”
+
+Result: the reflection and schema attribution now match this division of work, the evidence link points to data-model PR #12, and the reflection body is 531 words excluding title and evidence. The stranger-test reflection body is 487 words on the same basis. No source/config files or tests were changed.
