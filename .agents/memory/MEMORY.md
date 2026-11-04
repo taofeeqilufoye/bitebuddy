@@ -1,0 +1,1 @@
+- [Shell runtime and `.replit`](replit-shell-runtime.md) — invoking a language runtime may auto-add its Nix module; check configuration diffs after tooling.
