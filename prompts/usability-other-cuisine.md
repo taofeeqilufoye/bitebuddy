@@ -20,6 +20,7 @@
 - `npm run typecheck` passed.
 - `npm run build` passed. Vite emitted a chunk-size advisory for the existing client bundle; the client and server builds completed.
 - Restarted the existing `Start application` workflow successfully; Vite served the development UI on port 5000 and Express started on port 3000.
+- The fresh workflow log also emitted `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`: a proxied request supplied `X-Forwarded-For` while Express `trust proxy` was false. The runtime code is otherwise unchanged from `origin/main`; auth/proxy behavior is outside this issue, so it was not modified. The focused Supertest script does not exercise Replit's forwarded-header path.
 - Replit Agent ran a one-off `node --import tsx` verification script, with no new test file. Its guard confirmed database `heliumdb` and `pg_is_in_recovery() = false`; it refused production.
 - Called the existing repeat-safe `seedCuisineLabels()` twice and queried the database: exactly one `Other` row remained. The authenticated `/api/cuisines` response also contained `Other` exactly once.
 - Through actual authenticated Express/Supertest routes, created a Thai restaurant, edited its cuisine to `Other`, and created a second restaurant directly with `Other`. Both responses returned the `Other` cuisine label.
