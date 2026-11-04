@@ -15,15 +15,20 @@
 - The user reports two outside-class people created their own accounts and were observed unaided on November 3, 2026, for approximately 12 and 14 minutes. No names or additional struggles are recorded.
 - Selected scope is the single shared seed label `Other`; no custom-category editor, schema, authentication, UI redesign, or unrelated feedback change.
 
+## Follow-up user prompt (verbatim)
+
+> Root UI verification complete: supervising assistant signed into existing disposable DEVELOPMENT account and selected Other in actual create form; screenshot saved externally. The first login attempt occurred while workflow was restarting, then succeeded after reload. Correct promptlog line29 attribution: supervising assistant, not human user, said it would independently verify UI; add actual root verification result. No source changes or reruns. Commit/push this log correction only feature/usability-other-cuisine. The proxy warning is development-only (production trust proxy1 is already configured); leave runtime unchanged. Report finalSHA.
+
 ## Verification results
 
 - `npm run typecheck` passed.
 - `npm run build` passed. Vite emitted a chunk-size advisory for the existing client bundle; the client and server builds completed.
 - Restarted the existing `Start application` workflow successfully; Vite served the development UI on port 5000 and Express started on port 3000.
-- The fresh workflow log also emitted `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`: a proxied request supplied `X-Forwarded-For` while Express `trust proxy` was false. The runtime code is otherwise unchanged from `origin/main`; auth/proxy behavior is outside this issue, so it was not modified. The focused Supertest script does not exercise Replit's forwarded-header path.
+- The fresh workflow log emitted `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` in development: a proxied request supplied `X-Forwarded-For` while Express `trust proxy` was false. The user clarified that this warning is development-only and production `trust proxy` is already set to 1. Runtime code was left unchanged.
 - Replit Agent ran a one-off `node --import tsx` verification script, with no new test file. Its guard confirmed database `heliumdb` and `pg_is_in_recovery() = false`; it refused production.
 - Called the existing repeat-safe `seedCuisineLabels()` twice and queried the database: exactly one `Other` row remained. The authenticated `/api/cuisines` response also contained `Other` exactly once.
 - Through actual authenticated Express/Supertest routes, created a Thai restaurant, edited its cuisine to `Other`, and created a second restaurant directly with `Other`. Both responses returned the `Other` cuisine label.
 - Applied the existing client `filterAndSortRestaurants` helper with the `Other` cuisine ID; it returned exactly those two fixtures. The dashboard reported two saved restaurants, average rating 4.6, and one `Other` cuisine group with count 2.
 - Cleaned up only the unique disposable account `usability-other-52f760ab-6b47-4154-aea0-f79613ac8729@example.test` and its sessions; disposable restaurant IDs 297 and 298 were confirmed absent afterward. The shared `Other` seed row intentionally remains in the development database. No production database or data was accessed.
-- Replit Agent did not perform a browser UI check; the user said they will independently verify the development UI. No full suite was run because this was a one-line seed addition and focused route/helper checks passed.
+- The supervising assistant independently signed into the existing disposable development account and selected `Other` in the actual create form. The supervising assistant reported that the first login attempt happened during workflow restart, then succeeded after reload; a screenshot was saved externally. Replit Agent did not perform this browser check.
+- No full suite was run because this was a one-line seed addition and focused route/helper checks passed.
