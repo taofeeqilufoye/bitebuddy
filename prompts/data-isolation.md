@@ -53,6 +53,11 @@ Removing the owner filter from `GET /api/restaurants` makes A's restaurant appea
 - **GREEN result reported by the supervising assistant:** `npm test -- tests/required-isolation.test.ts` passed, 1 file / 1 test, at 06:27:49 UTC; duration 2.62 seconds.
 - The supervising assistant reported saving `isolation-green.jpg` as a full-UI screenshot without editing. It will be uploaded to `test-evidence/` via GitHub; it is not present in the workspace yet.
 - The RED and GREEN image links are documented in `test-evidence/README.md`. No screenshot files have been invented or added.
-- The supervising assistant's full-suite run after recording the reported GREEN result: `npm test` **passed**, 8 files / 31 tests, started at 06:29:23, duration 20.84 seconds.
+- Replit Agent's full-suite run after recording the reported GREEN result: `npm test` **passed**, 8 files / 31 tests, started at 06:29:23, duration 20.84 seconds.
 - No build was run because `server/app.ts` and `.replit` match `origin/main` byte-for-byte; no runtime or configuration change remains in the cumulative branch diff.
 - No merge or publish was performed.
+
+## Screenshot upload status at documentation correction
+
+- The RED and GREEN screenshots were reported as captured by the supervising assistant, not by a human running the tests.
+- As of this log update, the two JPGs are not present in the workspace. The user plans to add the actual images via GitHub before merge; the links in `test-evidence/README.md` use their intended relative filenames.
